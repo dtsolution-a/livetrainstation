@@ -79,7 +79,7 @@ export default function CoachPositionPage() {
       <div className="glass-card p-6 mb-8">
         <form onSubmit={handleFetch}>
           <label className="text-xs font-bold text-[var(--muted)] mb-1 block uppercase tracking-wider">Train Number</label>
-          <div className="flex gap-3">
+          <div className="flex flex-col sm:flex-row gap-3">
             <input
               value={trainNo}
               onChange={(e) => setTrainNo(e.target.value.replace(/\D/g, '').slice(0, 5))}
@@ -90,7 +90,7 @@ export default function CoachPositionPage() {
             <button
               type="submit"
               disabled={loading}
-              className="premium-btn flex items-center gap-2 px-6"
+              className="premium-btn flex items-center justify-center gap-2 px-6 py-3 rounded-xl"
             >
               {loading ? (
                 <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />

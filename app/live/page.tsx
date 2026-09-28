@@ -124,13 +124,13 @@ function LiveContent() {
       {/* Input Card */}
       <div className="glass-card" style={{ padding: 20, marginBottom: 24 }}>
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-          <div style={{ flex: 1, minWidth: 160 }}>
+          <div className="input-wrap">
             <label style={labelStyle}>Train Number</label>
             <input style={inputStyle} value={trainNo}
               onChange={e => setTrainNo(e.target.value.replace(/\D/g,'').slice(0,5))}
               placeholder="12345" maxLength={5} />
           </div>
-          <div style={{ flex: 1, minWidth: 160 }}>
+          <div className="input-wrap">
             <label style={labelStyle}><Calendar size={11} style={{ verticalAlign: 'middle', marginRight: 4 }} />Journey Date</label>
             <input
               type="date"
@@ -141,8 +141,8 @@ function LiveContent() {
               max={(() => { const d = new Date(); d.setDate(d.getDate()+4); return d.toISOString().split('T')[0]; })()}
             />
           </div>
-          <button onClick={() => handleTrack()} disabled={loading} className="premium-btn"
-            style={{ width: '100%', maxWidth: 220, borderRadius: 12, padding: '12px 0', gap: 8 }}>
+          <button onClick={() => handleTrack()} disabled={loading} className="premium-btn input-wrap"
+            style={{ borderRadius: 12, padding: '12px 0', gap: 8 }}>
             {loading
               ? <span style={{ width: 18, height: 18, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} />
               : <><Navigation size={16} /> Track Train</>}
@@ -202,10 +202,10 @@ function LiveContent() {
           <div className="glass-card" style={{ overflow: 'hidden' }}>
             {/* Table Header */}
             <div style={{ display: 'flex', background: 'var(--bg)', borderBottom: '1px solid var(--border)', padding: '12px 0' }}>
-              <div style={{ width: '90px', textAlign: 'center', fontSize: 11, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Arrival</div>
-              <div style={{ width: '50px' }} />
+              <div className="col-time" style={{ flexShrink: 0, textAlign: 'center', fontSize: 11, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Arr<span className="hide-mobile">ival</span></div>
+              <div className="col-track" style={{ flexShrink: 0 }} />
               <div style={{ flex: 1, fontSize: 11, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', paddingLeft: 12 }}>Station</div>
-              <div style={{ width: '90px', textAlign: 'center', fontSize: 11, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Departure</div>
+              <div className="col-time" style={{ flexShrink: 0, textAlign: 'center', fontSize: 11, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Dep<span className="hide-mobile">arture</span></div>
             </div>
 
             <div style={{ padding: '12px 0' }}>
@@ -228,25 +228,25 @@ function LiveContent() {
                   >
                     
                     {/* ARRIVAL COLUMN */}
-                    <div style={{ width: '90px', flexShrink: 0, textAlign: 'center', padding: '24px 8px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                    <div className="col-time" style={{ flexShrink: 0, textAlign: 'center', padding: '24px 0', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                       {station.scheduledArrival ? (
                          <>
-                           <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>
+                           <span style={{ fontSize: 'clamp(11px, 3.5vw, 13px)', fontWeight: 700, color: 'var(--text)' }}>
                              {formatTime(station.scheduledArrival)}
                            </span>
                            {station.actualArrival && station.actualArrival !== station.scheduledArrival && (
-                             <span style={{ fontSize: 12, fontWeight: 800, color: delayColor(delayArr), marginTop: 4 }}>
+                             <span style={{ fontSize: 'clamp(11px, 3.5vw, 12px)', fontWeight: 800, color: delayColor(delayArr), marginTop: 4 }}>
                                {formatTime(station.actualArrival)}
                              </span>
                            )}
                          </>
                       ) : (
-                         <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>Source</span>
+                         <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>Src</span>
                       )}
                     </div>
 
                     {/* TRACK COLUMN */}
-                    <div style={{ width: '50px', flexShrink: 0, position: 'relative' }}>
+                    <div className="col-track" style={{ flexShrink: 0, position: 'relative' }}>
                        {topTrackStatus && <div style={getTrackStyle(topTrackStatus, 'top')} />}
                        {bottomTrackStatus && <div style={getTrackStyle(bottomTrackStatus, 'bottom')} />}
                        
@@ -254,17 +254,17 @@ function LiveContent() {
                        {status === 'current' ? (
                          <div style={{
                            position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-                           width: 34, height: 34, borderRadius: '50%', backgroundColor: '#3B82F6',
+                           width: 28, height: 28, borderRadius: '50%', backgroundColor: '#3B82F6',
                            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3,
-                           boxShadow: '0 0 0 6px rgba(59,130,246,0.2)', animation: 'pulseBlue 2s infinite'
+                           boxShadow: '0 0 0 4px rgba(59,130,246,0.2)', animation: 'pulseBlue 2s infinite'
                          }}>
-                            <Train size={18} color="#fff" />
+                            <Train size={14} color="#fff" />
                          </div>
                        ) : (
                          /* Passed/Upcoming Station Node */
                          <div style={{
                            position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-                           width: 16, height: 16, borderRadius: '50%',
+                           width: 14, height: 14, borderRadius: '50%',
                            backgroundColor: status === 'passed' ? 'var(--primary)' : 'var(--bg)',
                            border: `3px solid ${status === 'passed' ? 'var(--primary)' : 'var(--border)'}`,
                            zIndex: 2,
@@ -273,44 +273,44 @@ function LiveContent() {
                     </div>
 
                     {/* STATION INFO COLUMN */}
-                    <div style={{ flex: 1, padding: '24px 12px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: 16, fontWeight: 800, color: status === 'current' ? '#3B82F6' : 'var(--text)', fontFamily: "var(--font-heading), sans-serif", letterSpacing: '0.02em' }}>
+                    <div style={{ flex: 1, padding: '24px 8px', display: 'flex', flexDirection: 'column', justifyContent: 'center', minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: 'clamp(14px, 4vw, 16px)', fontWeight: 800, color: status === 'current' ? '#3B82F6' : 'var(--text)', fontFamily: "var(--font-heading), sans-serif", letterSpacing: '0.02em', wordBreak: 'break-word' }}>
                           {station.stationName}
                         </span>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 6, fontSize: 11, color: 'var(--muted)', fontWeight: 600 }}>
                          <span>{station.stationCode}</span>
                          {station.distance > 0 && (
                            <>
-                             <span style={{ width: 4, height: 4, borderRadius: '50%', background: 'var(--border)' }} />
+                             <span style={{ width: 3, height: 3, borderRadius: '50%', background: 'var(--border)' }} />
                              <span>{station.distance} km</span>
                            </>
                          )}
                          {station.platform && (
                            <>
-                             <span style={{ width: 4, height: 4, borderRadius: '50%', background: 'var(--border)' }} />
-                             <span style={{ color: 'var(--primary)', background: 'rgba(52,144,139,0.1)', padding: '2px 6px', borderRadius: 4 }}>PF {station.platform}</span>
+                             <span style={{ width: 3, height: 3, borderRadius: '50%', background: 'var(--border)' }} />
+                             <span style={{ color: 'var(--primary)', background: 'rgba(52,144,139,0.1)', padding: '2px 4px', borderRadius: 4, whiteSpace: 'nowrap' }}>PF {station.platform}</span>
                            </>
                          )}
                       </div>
                     </div>
 
                     {/* DEPARTURE COLUMN */}
-                    <div style={{ width: '90px', flexShrink: 0, textAlign: 'center', padding: '24px 8px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                    <div className="col-time" style={{ flexShrink: 0, textAlign: 'center', padding: '24px 0', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                       {station.scheduledDeparture ? (
                          <>
-                           <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>
+                           <span style={{ fontSize: 'clamp(11px, 3.5vw, 13px)', fontWeight: 700, color: 'var(--text)' }}>
                              {formatTime(station.scheduledDeparture)}
                            </span>
                            {station.actualDeparture && station.actualDeparture !== station.scheduledDeparture && (
-                             <span style={{ fontSize: 12, fontWeight: 800, color: delayColor(delayDep), marginTop: 4 }}>
+                             <span style={{ fontSize: 'clamp(11px, 3.5vw, 12px)', fontWeight: 800, color: delayColor(delayDep), marginTop: 4 }}>
                                {formatTime(station.actualDeparture)}
                              </span>
                            )}
                          </>
                       ) : (
-                         <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>Dest</span>
+                         <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>Dest</span>
                       )}
                     </div>
 
@@ -327,6 +327,15 @@ function LiveContent() {
           0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4); }
           70% { box-shadow: 0 0 0 10px rgba(59, 130, 246, 0); }
           100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+        }
+        .col-time { width: 90px; }
+        .col-track { width: 50px; }
+        .input-wrap { flex: 1 1 160px; }
+        @media (max-width: 480px) {
+          .col-time { width: 70px; }
+          .col-track { width: 36px; }
+          .input-wrap { flex: 1 1 120px; }
+          .hide-mobile { display: none !important; }
         }
       `}</style>
     </div>

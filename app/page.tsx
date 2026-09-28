@@ -137,7 +137,7 @@ export default function HomePage() {
                 boxShadow: '0 24px 48px rgba(0,0,0,0.08)' 
               }}
             >
-              <div style={{ flex: '1 1 300px', position: 'relative' }}>
+              <div style={{ flex: '1 1 240px', position: 'relative' }}>
                 <Search size={20} color="var(--muted)" style={{ position: 'absolute', left: 20, top: '50%', transform: 'translateY(-50%)' }} />
                 <input
                   className="rail-input"
@@ -153,7 +153,7 @@ export default function HomePage() {
                   }}
                 />
               </div>
-              <button type="submit" className="premium-btn" style={{ borderRadius: 16, padding: '16px 36px', fontSize: 16, flex: '0 0 auto' }}>
+              <button type="submit" className="premium-btn" style={{ borderRadius: 16, padding: '16px 36px', fontSize: 16, flex: '1 1 140px' }}>
                 Track Now
               </button>
             </form>
