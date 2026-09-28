@@ -223,6 +223,43 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* ── App Promotion ── */}
+      <section data-reveal style={{ maxWidth: S.page.maxWidth, margin: '60px auto 0', padding: '0 24px' }}>
+        <div style={{
+          background: 'var(--surface)',
+          borderRadius: 32,
+          overflow: 'hidden',
+          display: 'flex',
+          flexWrap: 'wrap',
+          boxShadow: '0 24px 48px rgba(0,0,0,0.06)',
+          border: '1px solid var(--border)'
+        }}>
+          <div style={{ flex: '1 1 360px', padding: 'clamp(32px, 5vw, 64px)', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+            <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>
+              Now Available
+            </span>
+            <h2 style={{ fontFamily: "var(--font-heading), sans-serif", fontSize: 'clamp(28px, 4vw, 36px)', fontWeight: 800, color: 'var(--text)', margin: '0 0 16px', lineHeight: 1.1 }}>
+              Take Live Train Station With You
+            </h2>
+            <p style={{ fontSize: 16, color: 'var(--muted)', lineHeight: 1.7, margin: '0 0 32px' }}>
+              Get the ultimate railway companion on your phone. Experience faster GPS tracking, offline PNR saving, and smart station alarms—all ad-free.
+            </p>
+            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+              <a href="#" className="premium-btn" style={{ padding: '14px 32px', borderRadius: 16, fontSize: 16, textDecoration: 'none' }}>
+                Download the App
+              </a>
+            </div>
+          </div>
+          <div style={{ flex: '1 1 360px', backgroundColor: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px' }}>
+            <img 
+              src="/images/poster.png" 
+              alt="Live Train Station App Poster" 
+              style={{ width: '100%', maxWidth: 360, borderRadius: 20, boxShadow: '0 16px 32px rgba(0,0,0,0.1)', objectFit: 'contain' }} 
+            />
+          </div>
+        </div>
+      </section>
+
       {/* ── Why RailSaathi (Inverted Theme) ── */}
       <section data-reveal style={{ backgroundColor: 'var(--text)', color: 'var(--bg)', marginTop: 60, padding: '80px 24px' }}>
         <div style={{ maxWidth: S.page.maxWidth, margin: '0 auto' }}>
