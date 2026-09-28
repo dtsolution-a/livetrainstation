@@ -139,7 +139,7 @@ function PnrContent() {
             </h3>
             {result.passengers.map((p, i) => (
               <div key={i} style={{
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8,
                 padding: '12px 14px', borderRadius: 10,
                 border: '1px solid var(--border)', background: 'var(--bg)',
                 marginBottom: 8,

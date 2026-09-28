@@ -123,20 +123,21 @@ export default function SearchPage() {
       <div className="glass-card" style={{ padding: 24, marginBottom: 20 }}>
         <form onSubmit={handleSearch}>
           <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-            <div style={{ flex: 1, minWidth: 160 }}>
+            <div style={{ flex: '1 1 200px' }}>
               <label style={labelStyle}>From Station</label>
               <StationInput value={from} onChange={setFrom} placeholder="e.g. Surat or ST" />
             </div>
             <button type="button" onClick={swap}
               style={{
-                background: 'none', border: '1.5px solid var(--border)',
-                borderRadius: 10, padding: '10px 12px', cursor: 'pointer',
-                color: 'var(--primary)', flexShrink: 0, marginBottom: 0,
-                display: 'flex', alignItems: 'center',
+                background: 'var(--surface)', border: '1px solid var(--border)',
+                borderRadius: 12, padding: '12px 14px', cursor: 'pointer',
+                color: 'var(--primary)', flexShrink: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                alignSelf: 'stretch', marginTop: 22 // To align with inputs
               }}>
               <ArrowLeftRight size={18} />
             </button>
-            <div style={{ flex: 1, minWidth: 160 }}>
+            <div style={{ flex: '1 1 200px' }}>
               <label style={labelStyle}>To Station</label>
               <StationInput value={to} onChange={setTo} placeholder="e.g. Kanpur or CNB" />
             </div>
