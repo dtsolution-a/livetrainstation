@@ -67,7 +67,7 @@ export default function Navbar() {
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}
             >
-              <Train size={16} color="#fff" />
+              <Train size={16} color="var(--on-primary)" />
             </div>
             Live Train Station
           </Link>
@@ -99,7 +99,7 @@ export default function Navbar() {
                   whiteSpace: 'nowrap',
                   transition: 'all 0.15s ease',
                   backgroundColor: isActive ? 'var(--primary)' : 'transparent',
-                  color: isActive ? '#fff' : 'var(--muted)',
+                  color: isActive ? 'var(--on-primary)' : 'var(--muted)',
                 }}
               >
                 {link.label}
@@ -175,7 +175,7 @@ export default function Navbar() {
                   fontWeight: 600,
                   fontSize: '15px',
                   backgroundColor: isActive ? 'var(--primary)' : 'transparent',
-                  color: isActive ? '#fff' : 'var(--text)',
+                  color: isActive ? 'var(--on-primary)' : 'var(--text)',
                 }}
               >
                 {link.label}

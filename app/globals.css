@@ -37,6 +37,7 @@
   --border:   #E2E8F0;
   --primary:  #34908B;
   --primary-hover: #2a7571;
+  --on-primary: #FFFFFF;
 }
 
 .dark {
@@ -47,6 +48,7 @@
   --border:   #334155;
   --primary:  #A5E9DD;
   --primary-hover: #8fd9cc;
+  --on-primary: #0F172A;
 }
 
 /* ---- Base Reset ---- */
@@ -88,7 +90,7 @@ h1, h2, h3, h4, h5, h6 {
   align-items: center;
   justify-content: center;
   background-color: var(--primary);
-  color: #fff;
+  color: var(--on-primary);
   border-radius: 12px;
   padding: 12px 24px;
   font-family: var(--font-body), sans-serif;

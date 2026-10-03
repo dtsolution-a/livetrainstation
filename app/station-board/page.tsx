@@ -145,7 +145,7 @@ function BoardContent() {
                   padding: '7px 14px', borderRadius: 999, fontSize: 13, fontWeight: 700, cursor: 'pointer',
                   border: `1.5px solid ${h === hours ? 'var(--primary)' : 'var(--border)'}`,
                   background: h === hours ? 'var(--primary)' : 'transparent',
-                  color: h === hours ? '#fff' : 'var(--text)', fontFamily: 'var(--font-body), sans-serif',
+                  color: h === hours ? 'var(--on-primary)' : 'var(--text)', fontFamily: 'var(--font-body), sans-serif',
                 }}>
                 Next {h}h
               </button>
@@ -157,7 +157,7 @@ function BoardContent() {
           </div>
 
           <button type="submit" disabled={loading} className="premium-btn" style={{ width: '100%', marginTop: 16, borderRadius: 12, padding: '13px 0', gap: 8 }}>
-            {loading ? <span style={{ width: 20, height: 20, border: '2px solid rgba(255,255,255,0.4)', borderTopColor: '#fff', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} />
+            {loading ? <span style={{ width: 20, height: 20, border: '2px solid rgba(255,255,255,0.4)', borderTopColor: 'var(--on-primary)', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} />
               : <><TrainFront size={17} /> Show Board</>}
           </button>
         </form>

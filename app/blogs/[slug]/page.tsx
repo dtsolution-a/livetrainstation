@@ -126,7 +126,7 @@ export default async function BlogPostPage({ params }: Props) {
           <Link href="/live" className="premium-btn text-sm px-4 py-2 flex items-center gap-1">
             Live Train Status <ArrowRight size={14} />
           </Link>
-          <Link href="/pnr" className="text-sm px-4 py-2 rounded-xl border border-[var(--primary)] text-[var(--primary)] font-bold hover:bg-[var(--primary)] hover:text-white transition flex items-center gap-1">
+          <Link href="/pnr" className="text-sm px-4 py-2 rounded-xl border border-[var(--primary)] text-[var(--primary)] font-bold hover:bg-[var(--primary)] hover:text-[var(--on-primary)] transition flex items-center gap-1">
             Check PNR
           </Link>
         </div>

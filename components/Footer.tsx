@@ -47,7 +47,7 @@ export default function Footer() {
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}
               >
-                <Train size={16} color="#fff" />
+                <Train size={16} color="var(--on-primary)" />
               </div>
               <span
                 style={{

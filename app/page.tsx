@@ -289,14 +289,14 @@ export default function HomePage() {
 
       {/* ── CTA Banner ── */}
       <section data-reveal style={{ maxWidth: S.page.maxWidth, margin: '0 auto', padding: '60px 24px 80px' }}>
-        <div style={{ background: 'linear-gradient(135deg, var(--primary) 0%, #2a7571 100%)', borderRadius: 28, padding: 'clamp(40px, 6vw, 64px)', textAlign: 'center', color: '#fff', boxShadow: '0 20px 40px rgba(52,144,139,0.2)' }}>
+        <div style={{ background: 'linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%)', borderRadius: 28, padding: 'clamp(40px, 6vw, 64px)', textAlign: 'center', color: 'var(--on-primary)', boxShadow: '0 20px 40px rgba(52,144,139,0.2)' }}>
           <h2 style={{ fontFamily: "var(--font-heading), sans-serif", fontSize: 'clamp(26px, 4vw, 36px)', fontWeight: 800, margin: '0 0 16px' }}>
             Get the Live Train Station App
           </h2>
           <p style={{ opacity: 0.9, margin: '0 auto 32px', fontSize: 17, maxWidth: 500, lineHeight: 1.6 }}>
             GPS-based station alarm, offline route cache, and more features — exclusively in our mobile app.
           </p>
-          <a href="#" style={{ display: 'inline-flex', alignItems: 'center', gap: 10, backgroundColor: '#fff', color: 'var(--primary)', fontWeight: 800, fontSize: 16, padding: '16px 32px', borderRadius: 14, textDecoration: 'none', transition: 'transform 0.2s', boxShadow: '0 8px 20px rgba(0,0,0,0.1)' }}>
+          <a href="#" style={{ display: 'inline-flex', alignItems: 'center', gap: 10, backgroundColor: 'var(--on-primary)', color: 'var(--primary)', fontWeight: 800, fontSize: 16, padding: '16px 32px', borderRadius: 14, textDecoration: 'none', transition: 'transform 0.2s', boxShadow: '0 8px 20px rgba(0,0,0,0.1)' }}>
             Download Now <ArrowRight size={18} />
           </a>
         </div>

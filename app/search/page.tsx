@@ -117,7 +117,7 @@ function SearchContent() {
           <button type="submit" disabled={loading} className="premium-btn"
             style={{ width: '100%', marginTop: 16, borderRadius: 12, padding: '13px 0', fontSize: 15, gap: 8 }}>
             {loading
-              ? <span style={{ width: 20, height: 20, border: '2px solid rgba(255,255,255,0.4)', borderTopColor: '#fff', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} />
+              ? <span style={{ width: 20, height: 20, border: '2px solid rgba(255,255,255,0.4)', borderTopColor: 'var(--on-primary)', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} />
               : <><Search size={17} /> Search Trains</>}
           </button>
         </form>

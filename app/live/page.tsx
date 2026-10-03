@@ -21,7 +21,7 @@ const inputStyle: React.CSSProperties = {
 const labelStyle: React.CSSProperties = {
   fontSize: 11, fontWeight: 700, color: 'var(--muted)',
   textTransform: 'uppercase' as const, letterSpacing: '0.07em',
-  display: 'block', marginBottom: 6,
+  display: 'flex', alignItems: 'center', gap: 5, height: 16, marginBottom: 6,
 };
 
 function delayColor(delay?: number): string {
@@ -66,6 +66,36 @@ function pollInterval(r: LiveStatus | null): number {
   return 30_000;
 }
 
+interface RefreshSummary {
+  where: string;
+  next?: string;
+  eta?: string;
+  delay?: number;
+  km?: number;
+  updated: string;
+}
+
+/** What the "just refreshed" card shows: current position + next stop. */
+function summarize(r: LiveStatus): RefreshSummary {
+  const idx = r.route.findIndex((s) => s.stationCode === r.currentLocation.stationCode);
+  const cur = idx >= 0 ? r.route[idx] : undefined;
+  const nextIdx = r.route.findIndex((s, i) => i > idx && (s.isHalt || i === r.route.length - 1));
+  const next = idx >= 0 && nextIdx > -1 ? r.route[nextIdx] : undefined;
+  let km: number | undefined;
+  if (cur && next) {
+    const pos = cur.distance + (r.route[idx + 1] ? (r.route[idx + 1].distance - cur.distance) * r.currentLocation.segmentProgress : 0);
+    km = Math.max(0, next.distance - pos);
+  }
+  return {
+    where: cur ? `${r.currentLocation.isHalt ? 'Halted at' : 'Departed from'} ${cur.stationName}` : r.statusNote || 'Position updated',
+    next: next?.stationName,
+    eta: next ? formatTime(next.actualArrival || next.scheduledArrival) : undefined,
+    delay: next?.delayArrival,
+    km,
+    updated: formatTime(r.lastUpdate),
+  };
+}
+
 function ago(ts: number, now: number): string {
   const s = Math.max(0, Math.round((now - ts) / 1000));
   if (s < 10) return 'just now';
@@ -85,6 +115,9 @@ function LiveContent() {
   const [now, setNow] = useState(() => Date.now());
   const [copied, setCopied] = useState(false);
   const [autoOn, setAutoOn] = useState(true);
+  const [toast, setToast] = useState<RefreshSummary | null>(null);
+  const [toastShown, setToastShown] = useState(false);
+  const toastTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const active = useRef<{ no: string; date: string } | null>(null);
   const history = useHistory('train');
 
@@ -109,6 +142,16 @@ function LiveContent() {
       setResult(data);
       setFetchedAt(Date.now());
       active.current = { no, date: dt };
+      // Refreshed while the controls are scrolled out of view → pop a short summary card.
+      if (silent && window.scrollY > 240) {
+        toastTimers.current.forEach(clearTimeout);
+        setToast(summarize(data));
+        toastTimers.current = [
+          setTimeout(() => setToastShown(true), 30),
+          setTimeout(() => setToastShown(false), 3200),
+          setTimeout(() => setToast(null), 3700),
+        ];
+      }
       if (!silent) {
         addTrainHistory(no, data.trainName);
         // Bring the current station into view once per load, not on background refreshes.
@@ -204,28 +247,32 @@ function LiveContent() {
 
       {/* Input Card */}
       <div className="glass-card" style={{ padding: 20, marginBottom: 24 }}>
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-          <div className="input-wrap" style={{ flex: '2 1 240px' }}>
+        <div className="live-form">
+          <div>
             <label style={labelStyle}>Train Number or Name</label>
             <TrainField value={trainNo} onChange={setTrainNo} placeholder="Number or name, e.g. Rajdhani" onEnter={() => handleTrack()} ariaLabel="Train number or name" />
           </div>
-          <div className="input-wrap">
-            <label style={labelStyle}><Calendar size={11} style={{ verticalAlign: 'middle', marginRight: 4 }} />Journey Date <span style={{ textTransform: 'none', letterSpacing: 0, fontWeight: 600 }}>(auto if blank)</span></label>
+          <div>
+            <label style={labelStyle}><Calendar size={12} />Journey Date <span style={{ textTransform: 'none', letterSpacing: 0, fontWeight: 600 }}>(auto if blank)</span></label>
             <input
               type="date"
-              style={inputStyle}
+              className="rail-input"
+              style={{ fontWeight: 700 }}
               value={date}
               onChange={e => setDate(e.target.value)}
+              aria-label="Journey date (blank = auto live running)"
               min={(() => { const d = new Date(); d.setDate(d.getDate()-4); return d.toISOString().split('T')[0]; })()}
               max={(() => { const d = new Date(); d.setDate(d.getDate()+4); return d.toISOString().split('T')[0]; })()}
             />
           </div>
-          <button onClick={() => handleTrack()} disabled={loading} className="premium-btn input-wrap"
-            style={{ borderRadius: 12, padding: '12px 0', gap: 8 }}>
-            {loading
-              ? <span style={{ width: 18, height: 18, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} />
-              : <><Navigation size={16} /> Track Train</>}
-          </button>
+          <div>
+            <label className="live-form-spacer" style={{ ...labelStyle, visibility: 'hidden' }} aria-hidden>.</label>
+            <button onClick={() => handleTrack()} disabled={loading} className="premium-btn live-form-btn" style={{ borderRadius: 12, gap: 8, width: '100%' }}>
+              {loading
+                ? <span style={{ width: 18, height: 18, border: '2px solid rgba(128,128,128,0.35)', borderTopColor: 'var(--on-primary)', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} />
+                : <><Navigation size={16} /> Track Train</>}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -265,7 +312,7 @@ function LiveContent() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                  <span style={{ fontSize: 14, fontWeight: 800, background: 'var(--primary)', color: '#fff', padding: '4px 10px', borderRadius: 8 }}>
+                  <span style={{ fontSize: 14, fontWeight: 800, background: 'var(--primary)', color: 'var(--on-primary)', padding: '4px 10px', borderRadius: 8 }}>
                     {result.trainNumber}
                   </span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: finished ? 'rgba(100,116,139,0.12)' : 'rgba(16, 185, 129, 0.1)', padding: '4px 10px', borderRadius: 8 }}>
@@ -287,7 +334,7 @@ function LiveContent() {
             </div>
             
             {result.currentLocation.stationCode && (
-              <div style={{ marginTop: 20, padding: '12px 16px', borderRadius: 12, background: 'var(--primary)', color: '#fff', display: 'flex', alignItems: 'center', gap: 10, boxShadow: '0 4px 12px rgba(52,144,139,0.2)' }}>
+              <div style={{ marginTop: 20, padding: '12px 16px', borderRadius: 12, background: 'var(--primary)', color: 'var(--on-primary)', display: 'flex', alignItems: 'center', gap: 10, boxShadow: '0 4px 12px rgba(52,144,139,0.2)' }}>
                 <MapPin size={18} />
                 <span style={{ fontSize: 14, fontWeight: 600 }}>
                   {result.currentLocation.isHalt ? 'Halted at' : 'Departed from'}
@@ -447,12 +494,59 @@ function LiveContent() {
           </div>
         </div>
       )}
+      {result && (
+        <button onClick={manualRefresh} disabled={refreshing} aria-label="Refresh live status" className="live-fab">
+          <RefreshCw size={22} style={refreshing ? { animation: 'spin 0.8s linear infinite' } : undefined} />
+        </button>
+      )}
+
+      {toast && (
+        <div role="status" aria-live="polite" className="live-toast" style={{ opacity: toastShown ? 1 : 0, transform: `translate(-50%, ${toastShown ? 0 : -8}px)` }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+            <span className="live-indicator" style={{ width: 8, height: 8, borderRadius: '50%', background: '#10B981', display: 'inline-block' }} />
+            <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.06em', color: '#10B981' }}>UPDATED · {toast.updated}</span>
+          </div>
+          <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: 'var(--text)' }}>{toast.where}</p>
+          {toast.next && (
+            <p style={{ margin: '6px 0 0', fontSize: 13, color: 'var(--muted)', fontWeight: 600 }}>
+              Next: <strong style={{ color: 'var(--text)' }}>{toast.next}</strong>
+              {toast.eta && toast.eta !== '—' && <> · {toast.eta}</>}
+              {toast.km != null && <> · {Math.round(toast.km)} km</>}
+              {toast.delay != null && toast.delay > 0 && <span style={{ color: toast.delay > 15 ? '#EF4444' : '#F59E0B', fontWeight: 800 }}> · {toast.delay} min late</span>}
+              {toast.delay != null && toast.delay <= 0 && <span style={{ color: '#10B981', fontWeight: 800 }}> · on time</span>}
+            </p>
+          )}
+        </div>
+      )}
       <style>{`
+        .live-fab {
+          position: fixed; right: 18px; bottom: calc(18px + env(safe-area-inset-bottom)); z-index: 45;
+          width: 54px; height: 54px; border-radius: 50%; border: none; cursor: pointer;
+          background: var(--primary); color: var(--on-primary);
+          display: flex; align-items: center; justify-content: center;
+          box-shadow: 0 8px 24px rgba(0,0,0,0.28); transition: transform 0.15s ease, opacity 0.2s ease;
+        }
+        .live-fab:active { transform: scale(0.94); }
+        .live-fab:disabled { opacity: 0.75; }
+        .live-toast {
+          position: fixed; top: 76px; left: 50%; z-index: 70; width: min(92vw, 420px);
+          padding: 14px 16px; border-radius: 16px; pointer-events: none;
+          background: var(--surface); border: 1px solid var(--border);
+          box-shadow: 0 16px 40px rgba(0,0,0,0.25);
+          transition: opacity 0.4s ease, transform 0.4s ease;
+        }
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes pulseBlue {
           0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4); }
           70% { box-shadow: 0 0 0 10px rgba(59, 130, 246, 0); }
           100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+        }
+        .live-form { display: grid; grid-template-columns: minmax(0, 1fr) 210px 160px; gap: 12px; align-items: start; }
+        .live-form .rail-input, .live-form-btn { height: 46px; }
+        .live-form-btn { padding: 0 16px; }
+        @media (max-width: 720px) {
+          .live-form { grid-template-columns: 1fr; gap: 14px; }
+          .live-form-spacer { display: none !important; }
         }
         .col-time { width: 90px; }
         .col-track { width: 50px; }
