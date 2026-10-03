@@ -1,9 +1,12 @@
-'use client';
+﻿'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Search, Radio, Ticket, Train, ArrowRight, BookOpen, Zap, MapPin, Clock, Star, Map } from 'lucide-react';
+import { Search, Radio, Ticket, Train, ArrowRight, BookOpen, Zap, MapPin, Clock, Star, Map, TrainFront } from 'lucide-react';
+import Combobox, { type Option } from '@/components/Combobox';
+import { preloadLookup, searchTrains } from '@/lib/lookup';
+import { parseTrainEntry, removeHistory, useHistory } from '@/lib/history';
 
 const S = {
   page: { maxWidth: 1200 } as React.CSSProperties,
@@ -23,6 +26,7 @@ const popularTrains = [
 const quickActions = [
   { href: '/search',    icon: Search, label: 'Search Trains',  desc: 'Find trains between stations',  accent: '#3B82F6' },
   { href: '/live',      icon: Radio,  label: 'Live Status',    desc: 'Real-time train tracking',       accent: '#10B981' },
+  { href: '/station-board', icon: TrainFront, label: 'Station Board', desc: 'Live arrivals & departures',   accent: '#06B6D4' },
   { href: '/pnr',       icon: Ticket, label: 'PNR Status',     desc: 'Check your booking status',      accent: '#F59E0B' },
   { href: '/train-info',icon: Train,  label: 'Train Info',     desc: 'Schedule, route & stops',        accent: '#8B5CF6' },
   { href: '/coach-position',icon: Map,label: 'Coach Position', desc: 'Check seat maps & layout',       accent: '#EC4899' },
@@ -44,33 +48,32 @@ const blogPreviews = [
 export default function HomePage() {
   const router = useRouter();
   const [q, setQ] = useState('');
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const wrapperRef = useRef<HTMLDivElement>(null);
+  const trainHistory = useHistory('train');
+  const pnrHistory = useHistory('pnr');
 
-  // Close suggestions when clicked outside
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
-        setShowSuggestions(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  const handleSearch = (e: React.FormEvent, value?: string) => {
-    if (e) e.preventDefault();
-    const v = (value || q).trim();
+  const go = (value: string) => {
+    const v = value.trim();
     if (!v) return;
-    setShowSuggestions(false);
     if (/^\d{10}$/.test(v)) router.push(`/pnr?pnr=${v}`);
     else if (/^\d{5}$/.test(v)) router.push(`/live?train=${v}`);
-    else router.push(`/train-info?train=${v}`);
+    else router.push(`/train-info?train=${encodeURIComponent(v)}`);
   };
 
-  const filteredTrains = q.length > 0 
-    ? popularTrains.filter(t => t.no.includes(q) || t.name.toLowerCase().includes(q.toLowerCase())).slice(0, 5)
-    : popularTrains.slice(0, 4);
+  const onPick = (o: Option) => go(o.id);
+
+  const search = async (text: string): Promise<Option[]> => {
+    const t = text.trim();
+    const out: Option[] = [];
+    if (/^\d{10}$/.test(t)) out.push({ id: t, text: t, badge: 'PNR', title: `Check PNR ${t}`, subtitle: 'Booking status' });
+    const trains = await searchTrains(t, 8);
+    for (const x of trains) out.push({ id: x.number, text: x.number, badge: x.number, title: x.name, subtitle: x.from && x.to ? `${x.from} → ${x.to}` : undefined });
+    return out;
+  };
+
+  const recents: Option[] = [
+    ...pnrHistory.slice(0, 2).map((p) => ({ id: p, text: p, badge: 'PNR', title: p, subtitle: 'Recent PNR' })),
+    ...trainHistory.slice(0, 4).map((e) => { const t = parseTrainEntry(e); return { id: t.number, text: t.number, badge: t.number, title: t.name || 'Train', subtitle: 'Recent train' }; }),
+  ];
 
   return (
     <div style={{ fontFamily: "var(--font-body), sans-serif" }}>
@@ -80,14 +83,16 @@ export default function HomePage() {
         style={{
           position: 'relative',
           padding: '120px 24px 100px',
-          overflow: 'hidden',
+          zIndex: 5,
           backgroundColor: 'var(--bg)',
           backgroundImage: 'radial-gradient(var(--border) 1px, transparent 1px)',
           backgroundSize: '24px 24px',
           borderBottom: '1px solid var(--border)'
         }}
       >
-        <div style={{ position: 'absolute', top: -150, left: '50%', transform: 'translateX(-50%)', width: 600, height: 600, background: 'var(--primary)', filter: 'blur(200px)', opacity: 0.1, borderRadius: '50%' }} />
+        <div aria-hidden style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
+          <div style={{ position: 'absolute', top: -150, left: '50%', transform: 'translateX(-50%)', width: 600, height: 600, background: 'var(--primary)', filter: 'blur(200px)', opacity: 0.1, borderRadius: '50%' }} />
+        </div>
 
         <div style={{ maxWidth: S.page.maxWidth, margin: '0 auto', textAlign: 'center', position: 'relative', zIndex: 10 }}>
           {/* Live badge */}
@@ -127,9 +132,9 @@ export default function HomePage() {
           </p>
 
           {/* Quick search floating card */}
-          <div ref={wrapperRef} style={{ position: 'relative', maxWidth: 680, margin: '0 auto' }}>
+          <div style={{ position: 'relative', maxWidth: 680, margin: '0 auto' }}>
             <form 
-              onSubmit={e => handleSearch(e)} 
+              onSubmit={e => { e.preventDefault(); go(q); }} 
               style={{ 
                 display: 'flex', flexWrap: 'wrap', gap: 8, 
                 background: 'var(--surface)', padding: 12, 
@@ -137,20 +142,23 @@ export default function HomePage() {
                 boxShadow: '0 24px 48px rgba(0,0,0,0.08)' 
               }}
             >
-              <div style={{ flex: '1 1 240px', position: 'relative' }}>
-                <Search size={20} color="var(--muted)" style={{ position: 'absolute', left: 20, top: '50%', transform: 'translateY(-50%)' }} />
-                <input
-                  className="rail-input"
-                  value={q}
-                  onChange={(e) => { setQ(e.target.value); setShowSuggestions(true); }}
-                  onFocus={() => setShowSuggestions(true)}
-                  placeholder="Train No, Name or PNR (10 digits)…"
-                  style={{ 
-                    width: '100%', borderRadius: 16, fontSize: 16, 
-                    padding: '18px 20px 18px 56px', border: 'none', 
-                    background: 'var(--bg)', fontWeight: 600,
-                    boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.02)' 
+              <div style={{ flex: '1 1 240px', textAlign: 'left' }}>
+                <Combobox
+                  text={q}
+                  onText={setQ}
+                  onPick={onPick}
+                  search={search}
+                  recents={recents}
+                  onRemoveRecent={(o) => {
+                    if (o.badge === 'PNR') removeHistory('pnr', o.id);
+                    else { const e = trainHistory.find((h) => parseTrainEntry(h).number === o.id); if (e) removeHistory('train', e); }
                   }}
+                  placeholder="Train no / name, or 10-digit PNR…"
+                  icon={<Search size={20} />}
+                  onFocus={preloadLookup}
+                  onEnter={() => go(q)}
+                  large
+                  ariaLabel="Search by train number, name or PNR"
                 />
               </div>
               <button type="submit" className="premium-btn" style={{ borderRadius: 16, padding: '16px 36px', fontSize: 16, flex: '1 1 140px' }}>
@@ -158,42 +166,6 @@ export default function HomePage() {
               </button>
             </form>
 
-            {/* Auto Suggestions Dropdown */}
-            {showSuggestions && (
-              <div style={{ 
-                position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 8, 
-                background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)',
-                boxShadow: '0 10px 30px rgba(0,0,0,0.1)', overflow: 'hidden', textAlign: 'left', zIndex: 50 
-              }}>
-                {filteredTrains.length > 0 ? (
-                  <>
-                    <div style={{ padding: '10px 16px', background: 'var(--bg)', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>
-                      {q ? 'Suggestions' : 'Popular Trains'}
-                    </div>
-                    {filteredTrains.map(t => (
-                      <div 
-                        key={t.no} 
-                        onClick={() => { setQ(t.no); handleSearch(null as any, t.no); }}
-                        style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12, transition: 'background 0.2s' }}
-                        onMouseOver={e => e.currentTarget.style.background = 'var(--bg)'}
-                        onMouseOut={e => e.currentTarget.style.background = 'transparent'}
-                      >
-                        <div style={{ background: 'rgba(52,144,139,0.1)', color: 'var(--primary)', padding: '4px 8px', borderRadius: 6, fontSize: 13, fontWeight: 700 }}>
-                          {t.no}
-                        </div>
-                        <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)' }}>
-                          {t.name}
-                        </div>
-                      </div>
-                    ))}
-                  </>
-                ) : (
-                  <div style={{ padding: '20px', textAlign: 'center', color: 'var(--muted)', fontSize: 14 }}>
-                    No exact train found in popular list. Press enter to search online.
-                  </div>
-                )}
-              </div>
-            )}
           </div>
           <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 16, fontWeight: 600 }}>
             <span style={{ color: 'var(--primary)' }}>Tip:</span> 5-digits for Live Status · 10-digits for PNR

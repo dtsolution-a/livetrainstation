@@ -1,8 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { LayoutGrid, AlertCircle, Train } from 'lucide-react';
 import { getCoachPosition, ApiError } from '@/lib/api';
+import { resolveTrainNumber } from '@/lib/lookup';
+import { addTrainHistory, clearHistory, parseTrainEntry, removeHistory, useHistory } from '@/lib/history';
+import TrainField from '@/components/TrainField';
+import RecentChips from '@/components/RecentChips';
 
 interface CoachData {
   coaches?: Array<{ coach: string; type: string; position?: number }>;
@@ -32,30 +37,46 @@ function getCoachColor(type: string): string {
   return coachTypeColors[key ?? 'DEFAULT'] ?? coachTypeColors.DEFAULT;
 }
 
-export default function CoachPositionPage() {
-  const [trainNo, setTrainNo] = useState('');
+function CoachContent() {
+  const searchParams = useSearchParams();
+  const history = useHistory('train');
+  const [trainNo, setTrainNo] = useState(searchParams.get('train') ?? '');
   const [result, setResult] = useState<CoachData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleFetch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!trainNo.trim() || trainNo.length !== 5) {
-      setError('Please enter a valid 5-digit train number.');
+  const fetchCoaches = async (value: string) => {
+    const no = await resolveTrainNumber(value);
+    if (!no) {
+      setError('Pick a train from the suggestions or enter a valid 5-digit train number.');
       return;
     }
+    setTrainNo(no);
     setLoading(true);
     setError('');
     setResult(null);
     try {
-      const data = await getCoachPosition(trainNo.trim()) as CoachData;
+      const data = await getCoachPosition(no) as CoachData;
       setResult(data);
+      addTrainHistory(no, String(data.trainName ?? ''));
+      window.history.replaceState(null, '', `/coach-position?train=${no}`);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not fetch coach data.');
     } finally {
       setLoading(false);
     }
   };
+
+  const handleFetch = (e: React.FormEvent) => { e.preventDefault(); void fetchCoaches(trainNo); };
+
+  const ran = useRef(false);
+  useEffect(() => {
+    if (ran.current) return;
+    ran.current = true;
+    const q = searchParams.get('train');
+    if (q) void fetchCoaches(q);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const rawCoaches = (result?.rake || result?.coaches || []) as any[];
   const coaches = rawCoaches
@@ -80,13 +101,9 @@ export default function CoachPositionPage() {
         <form onSubmit={handleFetch}>
           <label className="text-xs font-bold text-[var(--muted)] mb-1 block uppercase tracking-wider">Train Number</label>
           <div className="flex flex-col sm:flex-row gap-3">
-            <input
-              value={trainNo}
-              onChange={(e) => setTrainNo(e.target.value.replace(/\D/g, '').slice(0, 5))}
-              placeholder="5-digit train number"
-              maxLength={5}
-              className="flex-1 px-4 py-3 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-[var(--text)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] font-bold tracking-wider"
-            />
+            <div className="flex-1">
+              <TrainField value={trainNo} onChange={setTrainNo} placeholder="Train number or name" onEnter={() => void fetchCoaches(trainNo)} />
+            </div>
             <button
               type="submit"
               disabled={loading}
@@ -101,6 +118,18 @@ export default function CoachPositionPage() {
           </div>
         </form>
       </div>
+
+      {!result && !loading && (
+        <RecentChips
+          title="Recent trains"
+          onClear={() => clearHistory('train')}
+          chips={history.slice(0, 8).map((e) => {
+            const { number, name } = parseTrainEntry(e);
+            return { key: e, label: number, sub: name, onClick: () => void fetchCoaches(number), onRemove: () => removeHistory('train', e) };
+          })}
+        />
+      )}
+      {loading && <div className="glass-card skeleton" style={{ height: 200 }} />}
 
       {/* Error */}
       {error && (
@@ -173,5 +202,13 @@ export default function CoachPositionPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function CoachPositionPage() {
+  return (
+    <Suspense fallback={<div className="max-w-4xl mx-auto px-4 py-10 text-[var(--muted)]">Loading...</div>}>
+      <CoachContent />
+    </Suspense>
   );
 }

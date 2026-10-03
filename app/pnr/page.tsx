@@ -1,9 +1,12 @@
 'use client';
 
-import { useState, Suspense } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Ticket, AlertCircle, CheckCircle2, Clock, XCircle } from 'lucide-react';
+import { Ticket, AlertCircle, CheckCircle2, Clock, XCircle, RefreshCw, Share2, Check, Radio } from 'lucide-react';
+import Link from 'next/link';
 import { checkPNR, PnrStatus, ApiError } from '@/lib/api';
+import { addHistory, clearHistory, removeHistory, useHistory } from '@/lib/history';
+import RecentChips from '@/components/RecentChips';
 
 const inputStyle: React.CSSProperties = {
   width: '100%', padding: '14px 16px', borderRadius: 12,
@@ -48,14 +51,43 @@ function PnrContent() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleCheck = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const c = pnr.replace(/\D/g, '');
+  const history = useHistory('pnr');
+  const [copied, setCopied] = useState(false);
+  const [updatedAt, setUpdatedAt] = useState(0);
+
+  const check = async (value: string) => {
+    const c = value.replace(/\D/g, '');
     if (c.length !== 10) { setError('Please enter a valid 10-digit PNR number.'); return; }
+    setPnr(c);
     setLoading(true); setError(''); setResult(null);
-    try { setResult(await checkPNR(c)); }
+    try {
+      setResult(await checkPNR(c));
+      setUpdatedAt(Date.now());
+      addHistory('pnr', c);
+      window.history.replaceState(null, '', `/pnr?pnr=${c}`);
+    }
     catch (err) { setError(err instanceof ApiError ? err.message : 'Could not fetch PNR status.'); }
     finally { setLoading(false); }
+  };
+
+  const handleCheck = (e: React.FormEvent) => { e.preventDefault(); void check(pnr); };
+
+  // Deep link (?pnr=…) from the home quick-search / shared links runs immediately.
+  const ran = useRef(false);
+  useEffect(() => {
+    if (ran.current) return;
+    ran.current = true;
+    const q = searchParams.get('pnr');
+    if (q && q.length === 10) void check(q);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const share = async () => {
+    const url = `${location.origin}/pnr?pnr=${result?.pnr ?? pnr}`;
+    try {
+      if (navigator.share) await navigator.share({ title: `PNR ${result?.pnr}`, url });
+      else { await navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 1800); }
+    } catch { /* cancelled */ }
   };
 
   return (
@@ -87,6 +119,16 @@ function PnrContent() {
         </form>
       </div>
 
+      {!result && !loading && (
+        <RecentChips
+          title="Recent PNRs"
+          onClear={() => clearHistory('pnr')}
+          chips={history.map((p) => ({ key: p, label: p, onClick: () => void check(p), onRemove: () => removeHistory('pnr', p) }))}
+        />
+      )}
+
+      {loading && <div className="glass-card skeleton" style={{ height: 220, marginBottom: 12 }} />}
+
       {/* Error */}
       {error && (
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '14px 16px', borderRadius: 12, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#EF4444', fontSize: 13, fontWeight: 600, marginBottom: 16 }}>
@@ -97,6 +139,18 @@ function PnrContent() {
       {/* Result */}
       {result && (
         <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+            <button onClick={() => void check(result.pnr)} disabled={loading} className="premium-btn" style={{ padding: '8px 14px', fontSize: 13, borderRadius: 10, gap: 6 }}>
+              <RefreshCw size={14} /> Refresh
+            </button>
+            <button onClick={share} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: 'var(--muted)', padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 10, background: 'var(--surface)', cursor: 'pointer', fontFamily: 'var(--font-body), sans-serif' }}>
+              {copied ? <><Check size={14} /> Link copied</> : <><Share2 size={14} /> Share</>}
+            </button>
+            <Link href={`/live?train=${result.trainNumber}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: 'var(--primary)', padding: '8px 12px', border: '1.5px solid var(--primary)', borderRadius: 10, textDecoration: 'none' }}>
+              <Radio size={14} /> Track this train
+            </Link>
+            {updatedAt > 0 && <span style={{ fontSize: 11, color: 'var(--muted)' }}>Checked {new Date(updatedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span>}
+          </div>
           {/* Train info card */}
           <div className="glass-card" style={{ padding: 20 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>

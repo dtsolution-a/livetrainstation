@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import Link from 'next/link';
@@ -9,6 +9,7 @@ import { useTheme } from './ThemeProvider';
 const mainNavLinks = [
   { href: '/search',         label: 'Search Trains' },
   { href: '/live',           label: 'Live Status' },
+  { href: '/station-board',  label: 'Station Board' },
   { href: '/pnr',            label: 'PNR Status' },
   { href: '/train-info',     label: 'Train Info' },
   { href: '/coach-position', label: 'Coach' },

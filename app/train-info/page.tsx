@@ -1,9 +1,14 @@
 'use client';
 
-import { useState, Suspense } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Train, MapPin, Clock, Info } from 'lucide-react';
+import { Train, MapPin, Clock, Info, Radio, LayoutGrid } from 'lucide-react';
 import { getTrainInfo, TrainInfo, ApiError } from '@/lib/api';
+import { resolveTrainNumber } from '@/lib/lookup';
+import { addTrainHistory, clearHistory, parseTrainEntry, removeHistory, useHistory } from '@/lib/history';
+import TrainField from '@/components/TrainField';
+import RecentChips from '@/components/RecentChips';
 
 function TrainInfoContent() {
   const searchParams = useSearchParams();
@@ -12,24 +17,41 @@ function TrainInfoContent() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleFetch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!trainNo.trim()) {
+  const history = useHistory('train');
+
+  const fetchInfo = async (value: string) => {
+    if (!value.trim()) {
       setError('Please enter a train number or name.');
       return;
     }
+    const no = await resolveTrainNumber(value);
+    if (!no) { setError('No train found. Pick one from the suggestions.'); return; }
+    setTrainNo(no);
     setLoading(true);
     setError('');
     setResult(null);
     try {
-      const data = await getTrainInfo(trainNo.trim());
+      const data = await getTrainInfo(no);
       setResult(data);
+      addTrainHistory(no, data.trainName);
+      window.history.replaceState(null, '', `/train-info?train=${no}`);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not fetch train info. Try again.');
     } finally {
       setLoading(false);
     }
   };
+
+  const handleFetch = (e: React.FormEvent) => { e.preventDefault(); void fetchInfo(trainNo); };
+
+  const ran = useRef(false);
+  useEffect(() => {
+    if (ran.current) return;
+    ran.current = true;
+    const q = searchParams.get('train');
+    if (q) void fetchInfo(q);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 py-10 animate-fade-in">
@@ -47,12 +69,7 @@ function TrainInfoContent() {
           <label className="text-xs font-bold text-[var(--muted)] mb-1 block uppercase tracking-wider">
             Train Number or Name
           </label>
-          <input
-            value={trainNo}
-            onChange={(e) => setTrainNo(e.target.value)}
-            placeholder="e.g. 12301 or Rajdhani"
-            className="w-full px-4 py-3 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-[var(--text)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] font-bold"
-          />
+          <TrainField value={trainNo} onChange={setTrainNo} placeholder="e.g. 12301 or Rajdhani" onEnter={() => void fetchInfo(trainNo)} />
           <button
             type="submit"
             disabled={loading}
@@ -66,6 +83,18 @@ function TrainInfoContent() {
           </button>
         </form>
       </div>
+
+      {!result && !loading && (
+        <RecentChips
+          title="Recent trains"
+          onClear={() => clearHistory('train')}
+          chips={history.slice(0, 8).map((e) => {
+            const { number, name } = parseTrainEntry(e);
+            return { key: e, label: number, sub: name, onClick: () => void fetchInfo(number), onRemove: () => removeHistory('train', e) };
+          })}
+        />
+      )}
+      {loading && <div className="glass-card skeleton" style={{ height: 260 }} />}
 
       {/* Error */}
       {error && (
@@ -95,6 +124,14 @@ function TrainInfoContent() {
                 Runs on: <strong className="text-[var(--text)]">{result.runningDays.map(d => d.substring(0, 3)).join(', ')}</strong>
               </p>
             )}
+            <div className="flex flex-wrap gap-2 mt-4">
+              <Link href={`/live?train=${result.trainNumber}`} className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-xl border-[1.5px] border-[var(--primary)] text-[var(--primary)]" style={{ textDecoration: 'none' }}>
+                <Radio size={14} /> Live status
+              </Link>
+              <Link href={`/coach-position?train=${result.trainNumber}`} className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-xl border border-[var(--border)] text-[var(--muted)]" style={{ textDecoration: 'none' }}>
+                <LayoutGrid size={14} /> Coach position
+              </Link>
+            </div>
             {result.source && result.destination && (
               <div className="flex items-center gap-2 mt-3 text-sm">
                 <span className="font-bold text-[var(--primary)]">{result.source.name} ({result.source.code})</span>

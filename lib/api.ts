@@ -7,11 +7,17 @@ export class ApiError extends Error {
   }
 }
 
-async function get<T>(path: string): Promise<T> {
-  const res = await fetch(`${BASE_URL}${path}`, {
-    next: { revalidate: 30 }, // Cache for 30s for server components
-    headers: { 'Accept': 'application/json' },
-  });
+async function get<T>(path: string, fresh = false): Promise<T> {
+  let res: Response;
+  try {
+    res = await fetch(`${BASE_URL}${path}`, {
+      // Live data must never be served from a cache; static lookups can be.
+      ...(fresh ? { cache: 'no-store' as const } : { next: { revalidate: 30 } }),
+      headers: { 'Accept': 'application/json' },
+    });
+  } catch {
+    throw new ApiError('Could not reach the server. Check your connection and try again.');
+  }
 
   const body = await res.json().catch(() => {
     throw new ApiError('Unexpected response from server.', res.status);
@@ -126,7 +132,7 @@ export async function checkPNR(pnr: string): Promise<PnrStatus> {
 
 export async function trackTrain(trainNo: string, date: string): Promise<LiveStatus> {
   const path = `/train/${trainNo}/track${date ? `?date=${date}` : ''}`;
-  const raw = await get<Record<string, unknown>>(path);
+  const raw = await get<Record<string, unknown>>(path, true);
   return parseLiveStatus(raw);
 }
 
@@ -160,6 +166,50 @@ function parseTrainInfo(raw: any): TrainInfo {
 export async function getTrainInfo(trainNo: string): Promise<TrainInfo> {
   const raw = await get<any>(`/train/${trainNo}`);
   return parseTrainInfo(raw);
+}
+
+export interface BoardTrain {
+  number: string;
+  name: string;
+  type: string;
+  sourceCode: string;
+  destinationCode: string;
+  arrival?: string;
+  departure?: string;
+  /** 'at-station' | 'upcoming' | 'departed' | 'scheduled' */
+  liveType: string;
+  platform?: string;
+  delayMinutes: number;
+}
+
+export interface StationBoard {
+  code: string;
+  name: string;
+  trains: BoardTrain[];
+}
+
+export async function getStationBoard(code: string, hours: number): Promise<StationBoard> {
+  const raw = await get<Record<string, any>>(`/station/${code.toUpperCase()}/live?hours=${hours}`, true);
+  const codeOf = (v: any) => (v && typeof v === 'object' ? String(v.code ?? '') : String(v ?? ''));
+  return {
+    code: String(raw.station?.code ?? code),
+    name: String(raw.station?.name ?? ''),
+    trains: ((raw.trains ?? []) as any[]).map((j) => {
+      const platform = String(j.live?.platform ?? j.stop?.platform ?? '');
+      return {
+        number: String(j.train?.number ?? ''),
+        name: String(j.train?.name ?? ''),
+        type: String(j.train?.type ?? ''),
+        sourceCode: codeOf(j.train?.source),
+        destinationCode: codeOf(j.train?.destination),
+        arrival: j.stop?.arrival ? String(j.stop.arrival) : undefined,
+        departure: j.stop?.departure ? String(j.stop.departure) : undefined,
+        liveType: String(j.live?.type ?? 'scheduled'),
+        platform: platform || undefined,
+        delayMinutes: Number(j.live?.delayMinutes ?? 0),
+      };
+    }),
+  };
 }
 
 export async function getCoachPosition(trainNo: string): Promise<Record<string, unknown>> {

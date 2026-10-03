@@ -1,4 +1,4 @@
-import { MetadataRoute } from 'next'
+﻿import { MetadataRoute } from 'next'
 import { blogPosts } from '@/lib/blogs'
  
 export default function sitemap(): MetadataRoute.Sitemap {
@@ -8,6 +8,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     '',
     '/search',
     '/live',
+    '/station-board',
     '/pnr',
     '/train-info',
     '/coach-position',

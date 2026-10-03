@@ -1,9 +1,15 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Radio, Calendar, AlertCircle, Train, MapPin, Navigation } from 'lucide-react';
+import { Radio, Calendar, AlertCircle, Train, MapPin, Navigation, RefreshCw, Share2, Check, Info, LayoutGrid } from 'lucide-react';
 import { trackTrain, LiveStatus, ApiError, RouteStation } from '@/lib/api';
+import { resolveTrainNumber } from '@/lib/lookup';
+import { addTrainHistory, clearHistory, parseTrainEntry, removeHistory, useHistory } from '@/lib/history';
+import { useAutoRefresh } from '@/lib/useAutoRefresh';
+import TrainField from '@/components/TrainField';
+import RecentChips from '@/components/RecentChips';
 
 const inputStyle: React.CSSProperties = {
   width: '100%', padding: '12px 16px', borderRadius: 12,
@@ -41,49 +47,124 @@ function formatTime(val?: string): string {
   return val; 
 }
 
+/** Remaining km from the train's current position to the end of the route. */
+function remainingKm(r: LiveStatus): number | null {
+  const idx = r.route.findIndex((s) => s.stationCode === r.currentLocation.stationCode);
+  if (idx === -1 || r.route.length === 0) return null;
+  const cur = r.route[idx].distance;
+  const next = r.route[idx + 1];
+  const pos = next ? cur + (next.distance - cur) * r.currentLocation.segmentProgress : cur;
+  return Math.max(0, r.route[r.route.length - 1].distance - pos);
+}
+
+/** Like the app's adaptive polling: poll a bit faster as the train nears its destination. */
+function pollInterval(r: LiveStatus | null): number {
+  const km = r ? remainingKm(r) : null;
+  if (km == null) return 30_000;
+  if (km > 100) return 60_000;
+  if (km > 20) return 45_000;
+  return 30_000;
+}
+
+function ago(ts: number, now: number): string {
+  const s = Math.max(0, Math.round((now - ts) / 1000));
+  if (s < 10) return 'just now';
+  if (s < 60) return `${s}s ago`;
+  return `${Math.round(s / 60)} min ago`;
+}
+
 function LiveContent() {
   const searchParams = useSearchParams();
   const [trainNo, setTrainNo] = useState(searchParams.get('train') ?? '');
-  const [date, setDate] = useState('');
+  const [date, setDate] = useState(searchParams.get('date') ?? '');
   const [result, setResult] = useState<LiveStatus | null>(null);
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
+  const [fetchedAt, setFetchedAt] = useState(0);
+  const [now, setNow] = useState(() => Date.now());
+  const [copied, setCopied] = useState(false);
+  const [autoOn, setAutoOn] = useState(true);
+  const active = useRef<{ no: string; date: string } | null>(null);
+  const history = useHistory('train');
 
-  const getTodayISO = () => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  useEffect(() => {
+    try { if (localStorage.getItem('ls_live_auto') === '0') setAutoOn(false); } catch { /* ignore */ }
+  }, []);
+  const toggleAuto = () => {
+    setAutoOn((v) => { try { localStorage.setItem('ls_live_auto', v ? '0' : '1'); } catch { /* ignore */ } return !v; });
   };
 
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 5000);
+    return () => clearInterval(id);
+  }, []);
+
+  /** Fetch live status. `silent` keeps the current timeline on screen (auto/manual refresh). */
+  const fetchLive = useCallback(async (no: string, dt: string, silent: boolean) => {
+    if (silent) setRefreshing(true); else { setLoading(true); setResult(null); }
+    setError('');
+    try {
+      const data = await trackTrain(no, dt);
+      setResult(data);
+      setFetchedAt(Date.now());
+      active.current = { no, date: dt };
+      if (!silent) {
+        addTrainHistory(no, data.trainName);
+        // Bring the current station into view once per load, not on background refreshes.
+        setTimeout(() => document.getElementById('current-station-node')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 400);
+      }
+    } catch (err) {
+      // A failed background refresh keeps the last good data on screen.
+      if (!silent) setError(err instanceof ApiError ? err.message : 'Could not fetch live status.');
+    } finally { setLoading(false); setRefreshing(false); }
+  }, []);
+
   const handleTrack = async (tn?: string, dt?: string) => {
-    const tNo = tn ?? trainNo;
-    const tDate = dt ?? (date || getTodayISO());
-    if (tNo.length !== 5) { setError('Please enter a valid 5-digit train number.'); return; }
-    setLoading(true); setError(''); setResult(null);
-    try { setResult(await trackTrain(tNo, tDate)); }
-    catch (err) { setError(err instanceof ApiError ? err.message : 'Could not fetch live status.'); }
-    finally { setLoading(false); }
+    const no = await resolveTrainNumber(tn ?? trainNo);
+    if (!no) { setError('Pick a train from the suggestions or enter a valid 5-digit train number.'); return; }
+    setTrainNo(no);
+    const tDate = dt ?? date;
+    const q = new URLSearchParams({ train: no, ...(tDate ? { date: tDate } : {}) });
+    window.history.replaceState(null, '', `/live?${q}`);
+    await fetchLive(no, tDate, false);
   };
 
   useEffect(() => {
     const t = searchParams.get('train');
-    if (t && t.length === 5) { setTrainNo(t); handleTrack(t, ''); }
+    if (t && t.length === 5) handleTrack(t, searchParams.get('date') ?? '');
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const finished = !!result && result.route.length > 0
+    && result.route[result.route.length - 1].stationCode === result.currentLocation.stationCode
+    && result.currentLocation.segmentProgress === 0
+    && (remainingKm(result) ?? 1) === 0;
+
+  const { secondsLeft, paused, reset } = useAutoRefresh({
+    enabled: !!result && autoOn && !finished,
+    getInterval: () => pollInterval(result),
+    refresh: async () => { const a = active.current; if (a) await fetchLive(a.no, a.date, true); },
+  });
+
+  const manualRefresh = async () => {
+    const a = active.current;
+    if (!a || refreshing) return;
+    await fetchLive(a.no, a.date, true);
+    reset();
+  };
+
+  const share = async () => {
+    const url = `${location.origin}/live?train=${active.current?.no ?? trainNo}`;
+    const title = result ? `${result.trainNumber} ${result.trainName} — live status` : 'Live train status';
+    try {
+      if (navigator.share) await navigator.share({ title, url });
+      else { await navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 1800); }
+    } catch { /* user cancelled */ }
+  };
+
   const currentIdx = result ? result.route.findIndex(s => s.stationCode === result.currentLocation.stationCode) : -1;
   const haltStations = result ? result.route.filter(s => s.isHalt || s.stationCode === result.currentLocation.stationCode) : [];
-
-  // Auto-scroll to current station
-  useEffect(() => {
-    if (result && currentIdx !== -1) {
-      setTimeout(() => {
-        const el = document.getElementById('current-station-node');
-        if (el) {
-          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-      }, 300); // Wait for render
-    }
-  }, [result, currentIdx]);
 
   const getStatus = (s: RouteStation) => {
     if (!result) return 'upcoming';
@@ -124,14 +205,12 @@ function LiveContent() {
       {/* Input Card */}
       <div className="glass-card" style={{ padding: 20, marginBottom: 24 }}>
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-          <div className="input-wrap">
-            <label style={labelStyle}>Train Number</label>
-            <input style={inputStyle} value={trainNo}
-              onChange={e => setTrainNo(e.target.value.replace(/\D/g,'').slice(0,5))}
-              placeholder="12345" maxLength={5} />
+          <div className="input-wrap" style={{ flex: '2 1 240px' }}>
+            <label style={labelStyle}>Train Number or Name</label>
+            <TrainField value={trainNo} onChange={setTrainNo} placeholder="Number or name, e.g. Rajdhani" onEnter={() => handleTrack()} ariaLabel="Train number or name" />
           </div>
           <div className="input-wrap">
-            <label style={labelStyle}><Calendar size={11} style={{ verticalAlign: 'middle', marginRight: 4 }} />Journey Date</label>
+            <label style={labelStyle}><Calendar size={11} style={{ verticalAlign: 'middle', marginRight: 4 }} />Journey Date <span style={{ textTransform: 'none', letterSpacing: 0, fontWeight: 600 }}>(auto if blank)</span></label>
             <input
               type="date"
               style={inputStyle}
@@ -150,10 +229,31 @@ function LiveContent() {
         </div>
       </div>
 
+      {!result && !loading && (
+        <RecentChips
+          title="Recent trains"
+          onClear={() => clearHistory('train')}
+          chips={history.slice(0, 8).map((e) => {
+            const { number, name } = parseTrainEntry(e);
+            return { key: e, label: number, sub: name, onClick: () => { setTrainNo(number); void handleTrack(number); }, onRemove: () => removeHistory('train', e) };
+          })}
+        />
+      )}
+
+      {loading && (
+        <>
+          <div className="glass-card skeleton" style={{ height: 150, marginBottom: 20 }} />
+          <div className="glass-card skeleton" style={{ height: 320 }} />
+        </>
+      )}
+
       {/* Error */}
       {error && (
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '14px 16px', borderRadius: 12, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#EF4444', fontSize: 13, fontWeight: 600, marginBottom: 16 }}>
-          <AlertCircle size={15} style={{ flexShrink: 0, marginTop: 2 }} />{error}
+          <AlertCircle size={15} style={{ flexShrink: 0, marginTop: 2 }} />
+          <span>{error}
+            {/^\d{5}$/.test(trainNo) && <> · <Link href={`/train-info?train=${trainNo}`} style={{ color: 'inherit', textDecoration: 'underline' }}>View schedule instead</Link></>}
+          </span>
         </div>
       )}
 
@@ -168,9 +268,9 @@ function LiveContent() {
                   <span style={{ fontSize: 14, fontWeight: 800, background: 'var(--primary)', color: '#fff', padding: '4px 10px', borderRadius: 8 }}>
                     {result.trainNumber}
                   </span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(16, 185, 129, 0.1)', padding: '4px 10px', borderRadius: 8 }}>
-                    <span className="live-indicator" style={{ width: 8, height: 8, borderRadius: '50%', background: '#10B981', display: 'inline-block' }} />
-                    <span style={{ fontSize: 12, color: '#10B981', fontWeight: 800, letterSpacing: '0.05em' }}>LIVE</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: finished ? 'rgba(100,116,139,0.12)' : 'rgba(16, 185, 129, 0.1)', padding: '4px 10px', borderRadius: 8 }}>
+                    <span className={finished ? undefined : 'live-indicator'} style={{ width: 8, height: 8, borderRadius: '50%', background: finished ? 'var(--muted)' : '#10B981', display: 'inline-block' }} />
+                    <span style={{ fontSize: 12, color: finished ? 'var(--muted)' : '#10B981', fontWeight: 800, letterSpacing: '0.05em' }}>{finished ? 'JOURNEY ENDED' : 'LIVE'}</span>
                   </div>
                 </div>
                 <h2 style={{ fontFamily: "var(--font-heading), sans-serif", fontSize: 24, fontWeight: 800, color: 'var(--text)', margin: '0 0 6px' }}>
@@ -182,6 +282,7 @@ function LiveContent() {
                 <p style={{ fontSize: 11, color: 'var(--muted)', margin: '0 0 4px', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>Last Updated</p>
                 <p style={{ fontSize: 14, fontWeight: 800, margin: '0 0 2px', color: 'var(--primary)' }}>{formatTime(result.lastUpdate)}</p>
                 {result.date && <p style={{ fontSize: 12, color: 'var(--muted)', margin: 0 }}>{result.date}</p>}
+                {fetchedAt > 0 && <p style={{ fontSize: 11, color: 'var(--muted)', margin: '4px 0 0' }}>Checked {ago(fetchedAt, now)}</p>}
               </div>
             </div>
             
@@ -196,6 +297,31 @@ function LiveContent() {
                 </span>
               </div>
             )}
+          </div>
+
+          {/* Refresh controls */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+            <button onClick={manualRefresh} disabled={refreshing} className="premium-btn" style={{ padding: '8px 14px', fontSize: 13, borderRadius: 10, gap: 6 }}>
+              <RefreshCw size={14} style={refreshing ? { animation: 'spin 0.8s linear infinite' } : undefined} /> {refreshing ? 'Updating…' : 'Refresh'}
+            </button>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: 'var(--muted)', padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 10, background: 'var(--surface)', cursor: 'pointer' }}>
+              <input type="checkbox" checked={autoOn} onChange={toggleAuto} style={{ accentColor: 'var(--primary)' }} />
+              Auto-refresh
+              {autoOn && !finished && (
+                <span style={{ color: 'var(--primary)', fontVariantNumeric: 'tabular-nums' }}>
+                  {paused ? 'paused' : `· ${secondsLeft}s`}
+                </span>
+              )}
+            </label>
+            <button onClick={share} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: 'var(--muted)', padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 10, background: 'var(--surface)', cursor: 'pointer', fontFamily: 'var(--font-body), sans-serif' }}>
+              {copied ? <><Check size={14} /> Link copied</> : <><Share2 size={14} /> Share</>}
+            </button>
+            <Link href={`/train-info?train=${result.trainNumber}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: 'var(--muted)', padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 10, background: 'var(--surface)', textDecoration: 'none' }}>
+              <Info size={14} /> Schedule
+            </Link>
+            <Link href={`/coach-position?train=${result.trainNumber}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: 'var(--muted)', padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 10, background: 'var(--surface)', textDecoration: 'none' }}>
+              <LayoutGrid size={14} /> Coaches
+            </Link>
           </div>
 
           {/* Rail Radar Style Route Timeline */}
