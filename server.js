@@ -5,7 +5,33 @@
  *
  * Passenger/PM2 provide PORT; locally it falls back to 3000. Run `npm run build` first.
  */
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 const { createServer } = require('node:http');
+
+/**
+ * The panel has no "environment variables" screen, and the app folder (deploys/current) changes on
+ * every deploy. So secrets live in ONE file outside the app: ~/livetrainstation.env (or ENV_FILE).
+ * Real environment variables always win over the file. Must run before `next` is loaded.
+ */
+function loadEnvFile(file) {
+  let raw;
+  try {
+    raw = fs.readFileSync(file, 'utf8');
+  } catch (err) {
+    if (err.code !== 'ENOENT') console.error(`[server] cannot read ${file}:`, err.message);
+    return;
+  }
+  for (const line of raw.split(/\r?\n/)) {
+    const m = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$/.exec(line);
+    if (!m || line.trim().startsWith('#')) continue;
+    if (process.env[m[1]] === undefined) process.env[m[1]] = m[2].replace(/^(['"])(.*)\1$/, '$2');
+  }
+  console.log(`[server] loaded settings from ${file}`);
+}
+loadEnvFile(process.env.ENV_FILE || path.join(os.homedir(), 'livetrainstation.env'));
+
 const next = require('next');
 
 const port = parseInt(process.env.PORT || '3000', 10);
