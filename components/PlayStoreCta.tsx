@@ -1,6 +1,6 @@
 import { Smartphone, Star } from 'lucide-react';
 
-/** "Get the Android app" card. `url` comes from the admin settings (defaults to the Rail Saathi listing). */
+/** "Get the Android app" card. `url` comes from the admin settings (defaults to the official Play Store listing). */
 export default function PlayStoreCta({ url, compact = false }: { url: string; compact?: boolean }) {
   return (
     <div
@@ -12,7 +12,7 @@ export default function PlayStoreCta({ url, compact = false }: { url: string; co
       </div>
       <div style={{ flex: 1, minWidth: 200 }}>
         <p className="font-heading" style={{ fontWeight: 800, fontSize: compact ? 15 : 18, margin: 0, color: 'var(--text)' }}>
-          Rail Saathi — get the Android app
+          Live Train Station — get the Android app
         </p>
         <p style={{ margin: '2px 0 0', fontSize: 13, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
           <Star size={12} /> Live tracking, PNR alerts & offline station search on your phone

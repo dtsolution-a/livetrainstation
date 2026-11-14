@@ -27,7 +27,7 @@ export default function AppBanner() {
       <div style={{ maxWidth: 1200, margin: '0 auto', padding: '7px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
         <Smartphone size={15} style={{ flexShrink: 0 }} />
         <span style={{ flex: 1, minWidth: 0 }}>
-          Rail Saathi app — faster live tracking on your phone.{' '}
+          Live Train Station app — faster live tracking on your phone.{' '}
           <a href={playStoreUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', textDecoration: 'underline', fontWeight: 800 }}>
             Get it on Google Play
           </a>

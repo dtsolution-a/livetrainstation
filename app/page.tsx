@@ -234,7 +234,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── Why RailSaathi (Inverted Theme) ── */}
+      {/* ── Why Live Train Station (Inverted Theme) ── */}
       <section data-reveal style={{ backgroundColor: 'var(--text)', color: 'var(--bg)', marginTop: 60, padding: '80px 24px' }}>
         <div style={{ maxWidth: S.page.maxWidth, margin: '0 auto' }}>
           <h2 style={{ fontFamily: "var(--font-heading), sans-serif", fontSize: 28, fontWeight: 800, color: 'var(--bg)', textAlign: 'center', margin: '0 0 12px' }}>

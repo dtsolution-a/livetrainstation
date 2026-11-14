@@ -121,7 +121,7 @@ export default function Footer() {
                 color: 'var(--primary)', textDecoration: 'none',
               }}
             >
-              Rail Saathi on Google Play <ExternalLink size={13} />
+              Live Train Station on Google Play <ExternalLink size={13} />
             </a>
           </div>
         </div>
