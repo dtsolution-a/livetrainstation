@@ -1,4 +1,7 @@
+'use client';
+
 import Link from 'next/link';
+import { useSiteConfig } from './SiteConfig';
 import { Train, ExternalLink } from 'lucide-react';
 
 const col: React.CSSProperties = {
@@ -18,6 +21,7 @@ const colLink: React.CSSProperties = {
 };
 
 export default function Footer() {
+  const { playStoreUrl } = useSiteConfig();
   return (
     <footer
       style={{
@@ -108,14 +112,16 @@ export default function Footer() {
               More features: GPS alarm, offline access, dark mode sync.
             </p>
             <a
-              href="#"
+              href={playStoreUrl}
+              target="_blank"
+              rel="noopener noreferrer"
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: 6,
                 fontSize: 13, fontWeight: 700,
                 color: 'var(--primary)', textDecoration: 'none',
               }}
             >
-              Download Live Train Station <ExternalLink size={13} />
+              Rail Saathi on Google Play <ExternalLink size={13} />
             </a>
           </div>
         </div>

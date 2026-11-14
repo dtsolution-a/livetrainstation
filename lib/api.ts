@@ -1,4 +1,11 @@
-const BASE_URL = 'https://squid-app-plx4l.ondigitalocean.app/api';
+// In the browser every call goes through our own same-origin gateway (/api/rail);
+// on the server (SSR) it talks to the upstream directly.
+const BASE_URL =
+  typeof window === 'undefined'
+    ? (process.env.RAIL_API_URL || 'https://squid-app-plx4l.ondigitalocean.app/api').replace(/\/+$/, '')
+    : '/api/rail';
+
+const q = encodeURIComponent;
 
 export class ApiError extends Error {
   constructor(message: string, public statusCode?: number) {
@@ -126,18 +133,18 @@ export interface TrainInfo {
 // --- API Functions ---
 
 export async function checkPNR(pnr: string): Promise<PnrStatus> {
-  const raw = await get<Record<string, unknown>>(`/pnr/${pnr}`);
+  const raw = await get<Record<string, unknown>>(`/pnr/${q(pnr)}`);
   return parsePnrStatus(raw);
 }
 
 export async function trackTrain(trainNo: string, date: string): Promise<LiveStatus> {
-  const path = `/train/${trainNo}/track${date ? `?date=${date}` : ''}`;
+  const path = `/train/${q(trainNo)}/track${date ? `?date=${q(date)}` : ''}`;
   const raw = await get<Record<string, unknown>>(path, true);
   return parseLiveStatus(raw);
 }
 
 export async function searchTrains(from: string, to: string): Promise<TrainSearchResult[]> {
-  const raw = await get<unknown>(`/search?from=${from}&to=${to}`);
+  const raw = await get<unknown>(`/search?from=${q(from)}&to=${q(to)}`);
   const list: unknown[] = Array.isArray(raw) ? raw : (raw as Record<string, unknown[]>)?.trains ?? [];
   return list.map(parseTrainSearchResult);
 }
@@ -164,7 +171,7 @@ function parseTrainInfo(raw: any): TrainInfo {
 }
 
 export async function getTrainInfo(trainNo: string): Promise<TrainInfo> {
-  const raw = await get<any>(`/train/${trainNo}`);
+  const raw = await get<any>(`/train/${q(trainNo)}`);
   return parseTrainInfo(raw);
 }
 
@@ -189,7 +196,7 @@ export interface StationBoard {
 }
 
 export async function getStationBoard(code: string, hours: number): Promise<StationBoard> {
-  const raw = await get<Record<string, any>>(`/station/${code.toUpperCase()}/live?hours=${hours}`, true);
+  const raw = await get<Record<string, any>>(`/station/${q(code.toUpperCase())}/live?hours=${q(String(hours))}`, true);
   const codeOf = (v: any) => (v && typeof v === 'object' ? String(v.code ?? '') : String(v ?? ''));
   return {
     code: String(raw.station?.code ?? code),
@@ -213,12 +220,12 @@ export async function getStationBoard(code: string, hours: number): Promise<Stat
 }
 
 export async function getCoachPosition(trainNo: string): Promise<Record<string, unknown>> {
-  return await get<Record<string, unknown>>(`/train/${trainNo}/coaches`);
+  return await get<Record<string, unknown>>(`/train/${q(trainNo)}/coaches`);
 }
 
 export async function getTrainHistory(trainNo: string, date: string): Promise<Record<string, unknown>> {
   // date should be YYYY-MM-DD (matches what <input type="date"> provides)
-  return await get<Record<string, unknown>>(`/train/${trainNo}/history?date=${date}`);
+  return await get<Record<string, unknown>>(`/train/${q(trainNo)}/history?date=${q(date)}`);
 }
 
 export async function getAvailability(
@@ -226,7 +233,7 @@ export async function getAvailability(
   date: string, travelClass: string, quota: string
 ): Promise<Record<string, unknown>> {
   return await get<Record<string, unknown>>(
-    `/availability?trainNo=${trainNo}&from=${from}&to=${to}&date=${date}&coach=${travelClass}&quota=${quota}`
+    `/availability?trainNo=${q(trainNo)}&from=${q(from)}&to=${q(to)}&date=${q(date)}&coach=${q(travelClass)}&quota=${q(quota)}`
   );
 }
 
@@ -235,7 +242,7 @@ export async function getFare(
   date: string, travelClass: string, quota: string
 ): Promise<Record<string, unknown>> {
   return await get<Record<string, unknown>>(
-    `/fare?trainNo=${trainNo}&from=${from}&to=${to}&date=${date}&class=${travelClass}&quota=${quota}`
+    `/fare?trainNo=${q(trainNo)}&from=${q(from)}&to=${q(to)}&date=${q(date)}&class=${q(travelClass)}&quota=${q(quota)}`
   );
 }
 

@@ -7,6 +7,7 @@ import { Search, Radio, Ticket, Train, ArrowRight, BookOpen, Zap, MapPin, Clock,
 import Combobox, { type Option } from '@/components/Combobox';
 import { preloadLookup, searchTrains } from '@/lib/lookup';
 import { parseTrainEntry, removeHistory, useHistory } from '@/lib/history';
+import { useSiteConfig } from '@/components/SiteConfig';
 
 const S = {
   page: { maxWidth: 1200 } as React.CSSProperties,
@@ -47,6 +48,7 @@ const blogPreviews = [
 
 export default function HomePage() {
   const router = useRouter();
+  const { playStoreUrl } = useSiteConfig();
   const [q, setQ] = useState('');
   const trainHistory = useHistory('train');
   const pnrHistory = useHistory('pnr');
@@ -217,8 +219,8 @@ export default function HomePage() {
               Get the ultimate railway companion on your phone. Experience faster GPS tracking, offline PNR saving, and smart station alarms—all ad-free.
             </p>
             <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-              <a href="#" className="premium-btn" style={{ padding: '14px 32px', borderRadius: 16, fontSize: 16, textDecoration: 'none' }}>
-                Download the App
+              <a href={playStoreUrl} target="_blank" rel="noopener noreferrer" className="premium-btn" style={{ padding: '14px 32px', borderRadius: 16, fontSize: 16, textDecoration: 'none' }}>
+                Get it on Google Play
               </a>
             </div>
           </div>
@@ -296,8 +298,8 @@ export default function HomePage() {
           <p style={{ opacity: 0.9, margin: '0 auto 32px', fontSize: 17, maxWidth: 500, lineHeight: 1.6 }}>
             GPS-based station alarm, offline route cache, and more features — exclusively in our mobile app.
           </p>
-          <a href="#" style={{ display: 'inline-flex', alignItems: 'center', gap: 10, backgroundColor: 'var(--on-primary)', color: 'var(--primary)', fontWeight: 800, fontSize: 16, padding: '16px 32px', borderRadius: 14, textDecoration: 'none', transition: 'transform 0.2s', boxShadow: '0 8px 20px rgba(0,0,0,0.1)' }}>
-            Download Now <ArrowRight size={18} />
+          <a href={playStoreUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 10, backgroundColor: 'var(--on-primary)', color: 'var(--primary)', fontWeight: 800, fontSize: 16, padding: '16px 32px', borderRadius: 14, textDecoration: 'none', transition: 'transform 0.2s', boxShadow: '0 8px 20px rgba(0,0,0,0.1)' }}>
+            Get it on Google Play <ArrowRight size={18} />
           </a>
         </div>
       </section>

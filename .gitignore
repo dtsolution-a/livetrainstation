@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# runtime data (admin database, uploads, backups) — never commit
+/data/
+.env
+.env.*
+!.env.example

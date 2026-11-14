@@ -10,6 +10,8 @@ import { addTrainHistory, clearHistory, parseTrainEntry, removeHistory, useHisto
 import { useAutoRefresh } from '@/lib/useAutoRefresh';
 import TrainField from '@/components/TrainField';
 import RecentChips from '@/components/RecentChips';
+import PlayStoreCta from '@/components/PlayStoreCta';
+import { useSiteConfig } from '@/components/SiteConfig';
 
 const inputStyle: React.CSSProperties = {
   width: '100%', padding: '12px 16px', borderRadius: 12,
@@ -120,6 +122,10 @@ function LiveContent() {
   const toastTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const active = useRef<{ no: string; date: string } | null>(null);
   const history = useHistory('train');
+  const { playStoreUrl } = useSiteConfig();
+  const reqSeq = useRef(0);        // guards against out-of-order responses
+  const failures = useRef(0);      // consecutive background failures → back-off
+  const [stale, setStale] = useState(false);
 
   useEffect(() => {
     try { if (localStorage.getItem('ls_live_auto') === '0') setAutoOn(false); } catch { /* ignore */ }
@@ -135,10 +141,15 @@ function LiveContent() {
 
   /** Fetch live status. `silent` keeps the current timeline on screen (auto/manual refresh). */
   const fetchLive = useCallback(async (no: string, dt: string, silent: boolean) => {
-    if (silent) setRefreshing(true); else { setLoading(true); setResult(null); }
+    const seq = ++reqSeq.current;
+    if (silent) setRefreshing(true); else { setLoading(true); setResult(null); setStale(false); failures.current = 0; }
     setError('');
     try {
       const data = await trackTrain(no, dt);
+      // A newer request (e.g. user switched train) already started — drop this response.
+      if (seq !== reqSeq.current) return;
+      failures.current = 0;
+      setStale(false);
       setResult(data);
       setFetchedAt(Date.now());
       active.current = { no, date: dt };
@@ -158,9 +169,13 @@ function LiveContent() {
         setTimeout(() => document.getElementById('current-station-node')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 400);
       }
     } catch (err) {
-      // A failed background refresh keeps the last good data on screen.
-      if (!silent) setError(err instanceof ApiError ? err.message : 'Could not fetch live status.');
-    } finally { setLoading(false); setRefreshing(false); }
+      if (seq !== reqSeq.current) return;
+      // A failed background refresh keeps the last good data on screen and flags it as stale.
+      if (silent) { failures.current += 1; setStale(true); }
+      else setError(err instanceof ApiError ? err.message : 'Could not fetch live status.');
+    } finally {
+      if (seq === reqSeq.current) { setLoading(false); setRefreshing(false); }
+    }
   }, []);
 
   const handleTrack = async (tn?: string, dt?: string) => {
@@ -186,9 +201,16 @@ function LiveContent() {
 
   const { secondsLeft, paused, reset } = useAutoRefresh({
     enabled: !!result && autoOn && !finished,
-    getInterval: () => pollInterval(result),
+    getInterval: () => pollInterval(result) * Math.min(4, 2 ** failures.current),
     refresh: async () => { const a = active.current; if (a) await fetchLive(a.no, a.date, true); },
   });
+
+  // Phone regains signal → refresh straight away instead of waiting for the next poll.
+  useEffect(() => {
+    const onOnline = () => { const a = active.current; if (a) void fetchLive(a.no, a.date, true).finally(reset); };
+    window.addEventListener('online', onOnline);
+    return () => window.removeEventListener('online', onOnline);
+  }, [fetchLive, reset]);
 
   const manualRefresh = async () => {
     const a = active.current;
@@ -205,6 +227,14 @@ function LiveContent() {
       else { await navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 1800); }
     } catch { /* user cancelled */ }
   };
+
+  const journeyPct = (() => {
+    if (!result || result.route.length < 2) return null;
+    const rem = remainingKm(result);
+    const total = result.route[result.route.length - 1].distance - result.route[0].distance;
+    if (rem == null || total <= 0) return null;
+    return Math.max(0, Math.min(100, Math.round(((total - rem) / total) * 100)));
+  })();
 
   const currentIdx = result ? result.route.findIndex(s => s.stationCode === result.currentLocation.stationCode) : -1;
   const haltStations = result ? result.route.filter(s => s.isHalt || s.stationCode === result.currentLocation.stationCode) : [];
@@ -344,7 +374,25 @@ function LiveContent() {
                 </span>
               </div>
             )}
+            {journeyPct != null && (
+              <div style={{ marginTop: 16 }} aria-label={`Journey ${journeyPct}% complete`}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, fontWeight: 700, color: 'var(--muted)', marginBottom: 6 }}>
+                  <span>{journeyPct}% of journey covered</span>
+                  {remainingKm(result) != null && <span>{Math.round(remainingKm(result) ?? 0)} km to go</span>}
+                </div>
+                <div style={{ height: 8, borderRadius: 99, background: 'var(--border)', overflow: 'hidden' }}>
+                  <div style={{ width: `${journeyPct}%`, height: '100%', borderRadius: 99, background: 'linear-gradient(90deg, var(--primary), #3B82F6)', transition: 'width 1.2s ease' }} />
+                </div>
+              </div>
+            )}
           </div>
+
+          {stale && (
+            <div role="status" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderRadius: 12, background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', color: '#B45309', fontSize: 13, fontWeight: 600, marginBottom: 12 }}>
+              <AlertCircle size={15} style={{ flexShrink: 0 }} />
+              <span>Couldn’t refresh just now — showing the last update ({ago(fetchedAt, now)}). Retrying automatically.</span>
+            </div>
+          )}
 
           {/* Refresh controls */}
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom: 16 }}>
@@ -494,6 +542,7 @@ function LiveContent() {
           </div>
         </div>
       )}
+      {result && <div style={{ marginTop: 24 }}><PlayStoreCta url={playStoreUrl} compact /></div>}
       {result && (
         <button onClick={manualRefresh} disabled={refreshing} aria-label="Refresh live status" className="live-fab">
           <RefreshCw size={22} style={refreshing ? { animation: 'spin 0.8s linear infinite' } : undefined} />
