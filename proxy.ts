@@ -23,6 +23,27 @@ function csp(nonce: string) {
   ].join('; ');
 }
 
+const APP_PACKAGE = 'com.livetrainstation.raiilsaathi';
+const SITE = new URL(process.env.SITE_URL || 'https://livetrainstation.com');
+
+/** Real Android Chrome only: not link-preview bots, not in-app WebViews (they cannot launch intents). */
+function isAndroidChrome(ua: string): boolean {
+  return /Android/.test(ua) && /Chrome\//.test(ua) && !/; wv\)|bot|crawl|spider|facebookexternalhit|whatsapp|telegram|slack|preview|headless|lighthouse/i.test(ua);
+}
+
+/** intent:// URL that opens the app on a shared link, or null if this request should stay on the web. */
+function appIntentUrl(req: NextRequest): string | null {
+  const sp = req.nextUrl.searchParams;
+  const train = sp.get('train') ?? '';
+  if (sp.get('src') !== 'app' || sp.has('stay') || !/^\d{5}$/.test(train)) return null;
+  if (!isAndroidChrome(req.headers.get('user-agent') ?? '')) return null;
+
+  const date = sp.get('date') ?? '';
+  const query = `train=${train}${/^\d{4}-\d{2}-\d{2}$/.test(date) ? `&date=${date}` : ''}&src=app`;
+  const fallback = `${SITE.origin}/live?${query}&stay=1`;
+  return `intent://${SITE.host}/live?${query}#Intent;scheme=https;package=${APP_PACKAGE};S.browser_fallback_url=${encodeURIComponent(fallback)};end`;
+}
+
 export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
@@ -31,6 +52,15 @@ export function proxy(req: NextRequest) {
     const norm = pathname.replace(/\/+$/, '') || '/';
     const hit = getSettings().redirects.find((r) => r.from === norm);
     if (hit) return NextResponse.redirect(new URL(hit.to, req.url), hit.code);
+  }
+
+  // 1b. Shared live-tracking link on an Android phone: hand it to the app if it is installed.
+  //     Chrome only follows an intent:// redirect that is part of the user's own navigation, so
+  //     this has to be an HTTP redirect, not script. If the app is missing, Chrome loads the
+  //     fallback URL (same page with stay=1), which stays on the web and shows the app popup.
+  if (req.method === 'GET' && pathname === '/live') {
+    const intent = appIntentUrl(req);
+    if (intent) return NextResponse.redirect(intent, 302);
   }
 
   // 2. Optimistic admin gate (real authorisation is enforced in every API route).
