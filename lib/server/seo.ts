@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { config } from './config';
 import { getSettings } from './settings';
 import type { Post } from './posts';
+import { localize } from '../blog-lang.ts';
 
 const abs = (u: string) => (/^https?:\/\//i.test(u) ? u : `${config.siteUrl}${u.startsWith('/') ? '' : '/'}${u}`);
 
@@ -29,18 +30,26 @@ export function pageMetadata(pathname: string): Metadata {
   };
 }
 
-export function postMetadata(post: Post): Metadata {
+/** Address of a post in a language: English is the plain URL, the others carry ?lang=. */
+export const postPath = (slug: string, lang: string) => `/blogs/${slug}${lang === 'en' ? '' : `?lang=${lang}`}`;
+
+export function postMetadata(post: Post, lang = 'en'): Metadata {
   const s = getSettings();
-  const title = post.seoTitle || `${post.title} — ${s.seo.siteName} Blog`;
-  const description = post.seoDescription || post.excerpt || s.seo.defaultDescription;
+  const t = localize(post, lang);
+  const text = t ?? { title: post.title, excerpt: post.excerpt, seoTitle: post.seoTitle, seoDescription: post.seoDescription, lang: 'en', languages: ['en'] };
+  const title = text.seoTitle || `${text.title} — ${s.seo.siteName} Blog`;
+  const description = text.seoDescription || text.excerpt || s.seo.defaultDescription;
   const image = abs(post.coverImage || s.seo.defaultOgImage);
-  const url = `/blogs/${post.slug}`;
+  const url = postPath(post.slug, text.lang);
   const noindex = !s.seo.indexing || post.noindex;
   return {
     metadataBase: new URL(config.siteUrl),
     title,
     description,
-    alternates: { canonical: url },
+    alternates: {
+      canonical: url,
+      languages: Object.fromEntries(text.languages.map((l) => [l, postPath(post.slug, l)])),
+    },
     openGraph: {
       title, description, type: 'article', url, siteName: s.seo.siteName, images: [{ url: image }],
       publishedTime: post.publishedAt || post.scheduledFor || undefined, modifiedTime: post.updatedAt, authors: [post.author],
@@ -50,13 +59,15 @@ export function postMetadata(post: Post): Metadata {
   };
 }
 
-export function articleJsonLd(post: Post) {
+export function articleJsonLd(post: Post, lang = 'en') {
   const s = getSettings();
+  const t = localize(post, lang);
   return {
     '@context': 'https://schema.org',
     '@type': 'BlogPosting',
-    headline: post.title,
-    description: post.seoDescription || post.excerpt,
+    inLanguage: t?.lang ?? 'en',
+    headline: t?.title ?? post.title,
+    description: t?.seoDescription || t?.excerpt || post.seoDescription || post.excerpt,
     image: abs(post.coverImage || s.seo.defaultOgImage),
     datePublished: post.publishedAt || post.scheduledFor || post.createdAt,
     dateModified: post.updatedAt,

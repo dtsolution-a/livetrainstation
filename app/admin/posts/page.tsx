@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { api, errMsg } from '@/components/admin/api';
 import { useAuth } from '@/components/admin/AdminShell';
 
-interface Row { id: string; title: string; slug: string; status: 'draft' | 'published' | 'scheduled'; tag: string; featured: boolean; updatedAt: string; scheduledFor: string | null; words: number; updatedBy: string }
+interface Row { id: string; title: string; slug: string; status: 'draft' | 'published' | 'scheduled'; tag: string; featured: boolean; updatedAt: string; scheduledFor: string | null; words: number; updatedBy: string; languages?: string[] }
 
 export default function PostsPage() {
   const { can } = useAuth();
@@ -46,7 +46,7 @@ export default function PostsPage() {
             <tbody>
               {shown.map((r) => (
                 <tr key={r.id}>
-                  <td><Link href={`/admin/posts/${r.id}`}><b>{r.title}</b></Link>{r.featured && <span className="a-pill amber" style={{ marginLeft: 6 }}>featured</span>}<br /><span className="a-muted a-small">/blogs/{r.slug} · {r.words} words</span></td>
+                  <td><Link href={`/admin/posts/${r.id}`}><b>{r.title}</b></Link>{r.featured && <span className="a-pill amber" style={{ marginLeft: 6 }}>featured</span>}<br /><span className="a-muted a-small">/blogs/{r.slug} · {r.words} words</span>{r.languages && <div className="a-small">{r.languages.map((l) => <span key={l} className="a-pill blue" style={{ marginRight: 4 }}>{l}</span>)}</div>}</td>
                   <td><span className={`a-pill ${r.status === 'published' ? 'green' : r.status === 'scheduled' ? 'blue' : 'amber'}`}>{r.status}</span>{r.status === 'scheduled' && r.scheduledFor && <div className="a-small a-muted">{new Date(r.scheduledFor).toLocaleString('en-IN')}</div>}</td>
                   <td>{r.tag}</td>
                   <td className="a-muted">{new Date(r.updatedAt).toLocaleDateString('en-IN')}<div className="a-small">{r.updatedBy}</div></td>

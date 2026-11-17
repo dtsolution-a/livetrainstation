@@ -6,18 +6,23 @@ import { Clock, ArrowLeft, ArrowRight, BookOpen, User, Calendar } from 'lucide-r
 import { getPublishedPosts, publicDate } from '@/lib/server/posts';
 import { postMetadata, articleJsonLd, jsonLdString } from '@/lib/server/seo';
 import { getSettings } from '@/lib/server/settings';
+import { isVisibleFor, localize } from '@/lib/blog-lang';
+import { pageLang } from '@/lib/server/lang-pref';
+import BlogLangSwitcher from '@/components/BlogLangSwitcher';
 import { renderMarkdown } from '@/lib/markdown';
 import PlayStoreCta from '@/components/PlayStoreCta';
 
 export const dynamic = 'force-dynamic';
 
-interface Props { params: Promise<{ slug: string }> }
+interface Props { params: Promise<{ slug: string }>; searchParams: Promise<{ lang?: string }> }
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
+export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
   const { slug } = await params;
+  const lang = await pageLang((await searchParams).lang);
   const post = (await getPublishedPosts()).find((p) => p.slug === slug);
-  if (!post) return { title: 'Post Not Found', robots: { index: false } };
-  return postMetadata(post);
+  const t = post && localize(post, lang);
+  if (!post || !t) return { title: 'Post Not Found', robots: { index: false } };
+  return postMetadata(post, t.lang);
 }
 
 const tagColors: Record<string, string> = {
@@ -28,19 +33,28 @@ const tagColors: Record<string, string> = {
   News: 'bg-rose-50 text-rose-600',
 };
 
-export default async function BlogPostPage({ params }: Props) {
+export default async function BlogPostPage({ params, searchParams }: Props) {
   const { slug } = await params;
-  const posts = await getPublishedPosts();
+  const lang = await pageLang((await searchParams).lang);
+  const all = await getPublishedPosts();
+  const post0 = all.find((p) => p.slug === slug);
+  const t = post0 && localize(post0, lang);
+  if (!post0 || !t) notFound();
+  const post = { ...post0, title: t.title, excerpt: t.excerpt, content: t.content };
+  const shown = t.lang;
+  const posts = all.filter((p) => isVisibleFor(p, lang));
   const idx = posts.findIndex((p) => p.slug === slug);
-  if (idx === -1) notFound();
-  const post = posts[idx];
-  const prev = idx > 0 ? posts[idx - 1] : null;
-  const next = idx < posts.length - 1 ? posts[idx + 1] : null;
+  const nav = (p: typeof posts[number] | null) => {
+    const nt = p && localize(p, lang);
+    return p && nt ? { slug: p.slug, title: nt.title, lang: nt.lang } : null;
+  };
+  const prev = nav(idx > 0 ? posts[idx - 1] : null);
+  const next = nav(idx >= 0 && idx < posts.length - 1 ? posts[idx + 1] : null);
   const html = renderMarkdown(post.content);
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 py-10 animate-fade-in">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(articleJsonLd(post)) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(articleJsonLd(post0, shown)) }} />
 
       <div className="flex items-center gap-2 text-sm text-[var(--muted)] mb-8">
         <Link href="/blogs" className="hover:text-[var(--primary)] flex items-center gap-1 transition-colors">
@@ -49,6 +63,8 @@ export default async function BlogPostPage({ params }: Props) {
         <span>/</span>
         <span className="text-[var(--text)] truncate">{post.title}</span>
       </div>
+
+      <BlogLangSwitcher current={shown} basePath={`/blogs/${post0.slug}`} only={t.languages} />
 
       <div className="relative h-56 rounded-3xl bg-gradient-to-br from-[#A5E9DD]/40 to-[#34908B]/20 flex items-center justify-center mb-8 overflow-hidden">
         {post.coverImage ? (
@@ -60,7 +76,7 @@ export default async function BlogPostPage({ params }: Props) {
 
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${tagColors[post.tag] ?? 'bg-gray-100 text-gray-600'}`}>{post.tag}</span>
-        <span className="flex items-center gap-1 text-xs text-[var(--muted)]"><Clock size={12} /> {post.readTime}</span>
+        <span className="flex items-center gap-1 text-xs text-[var(--muted)]"><Clock size={12} /> {t.readMinutes} min read</span>
         <span className="flex items-center gap-1 text-xs text-[var(--muted)]">
           <Calendar size={12} /> {new Date(publicDate(post)).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
         </span>
@@ -87,13 +103,13 @@ export default async function BlogPostPage({ params }: Props) {
 
       <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 gap-4">
         {prev && (
-          <Link href={`/blogs/${prev.slug}`} className="glass-card p-4 group">
+          <Link href={`/blogs/${prev.slug}?lang=${prev.lang}`} className="glass-card p-4 group">
             <p className="text-xs text-[var(--muted)] mb-1 flex items-center gap-1"><ArrowLeft size={12} /> Newer</p>
             <p className="font-heading font-bold text-sm text-[var(--text)] group-hover:text-[var(--primary)] transition-colors line-clamp-2">{prev.title}</p>
           </Link>
         )}
         {next && (
-          <Link href={`/blogs/${next.slug}`} className="glass-card p-4 group sm:text-right sm:ml-auto">
+          <Link href={`/blogs/${next.slug}?lang=${next.lang}`} className="glass-card p-4 group sm:text-right sm:ml-auto">
             <p className="text-xs text-[var(--muted)] mb-1 flex items-center gap-1 sm:justify-end">Older <ArrowRight size={12} /></p>
             <p className="font-heading font-bold text-sm text-[var(--text)] group-hover:text-[var(--primary)] transition-colors line-clamp-2">{next.title}</p>
           </Link>

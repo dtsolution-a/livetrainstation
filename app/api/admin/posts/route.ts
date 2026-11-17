@@ -3,11 +3,15 @@ import { route } from '@/lib/server/http';
 import { buildPost } from '@/lib/server/post-input';
 import { audit } from '@/lib/server/audit';
 import type { Post } from '@/lib/server/posts';
+import { availableLangs } from '@/lib/blog-lang';
 
 export const GET = route({ perm: ['posts.read'] }, async () => {
   const posts = store
     .get<Post[]>('posts')
-    .map(({ content, ...rest }) => ({ ...rest, words: content.split(/\s+/).filter(Boolean).length }))
+    .map((p) => {
+      const { content, translations: _t, ...rest } = p;
+      return { ...rest, languages: availableLangs(p), words: content.split(/\s+/).filter(Boolean).length };
+    })
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   return { posts };
 });

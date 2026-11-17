@@ -1,5 +1,6 @@
 import * as store from './store';
 import { ensureReady } from './bootstrap';
+import type { Translations } from '../blog-lang.ts';
 
 export type PostStatus = 'draft' | 'published' | 'scheduled';
 
@@ -19,6 +20,13 @@ export interface Post {
   coverImage: string;
   seoTitle: string;
   seoDescription: string;
+  /**
+   * One text per language the post is written in. The top-level title / excerpt / content /
+   * seo* fields mirror the primary one (English, else Hindi, else the first), so everything
+   * that predates translations keeps working. Posts saved before this field existed have none
+   * and count as English only.
+   */
+  translations?: Translations;
   noindex: boolean;
   createdAt: string;
   updatedAt: string;

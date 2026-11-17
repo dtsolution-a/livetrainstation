@@ -6,15 +6,21 @@ import { api, errMsg } from './api';
 import { useAuth } from './AdminShell';
 import MediaPicker from './MediaPicker';
 import { renderMarkdown } from '@/lib/markdown';
+import { LANGS, type Lang } from '@/lib/langs';
+
+interface Text { title: string; excerpt: string; content: string; seoTitle: string; seoDescription: string }
+const EMPTY_TEXT: Text = { title: '', excerpt: '', content: '', seoTitle: '', seoDescription: '' };
+type Texts = Record<Lang, Text>;
+const emptyTexts = (): Texts => Object.fromEntries(LANGS.map((l) => [l.code, { ...EMPTY_TEXT }])) as Texts;
+const hasText = (t: Text) => !!(t.title.trim() || t.excerpt.trim() || t.content.trim());
 
 interface PostForm {
-  title: string; slug: string; excerpt: string; content: string; tag: string; readTime: string; author: string;
-  status: 'draft' | 'published' | 'scheduled'; scheduledFor: string; featured: boolean; coverImage: string;
-  seoTitle: string; seoDescription: string; noindex: boolean;
+  slug: string; tag: string; author: string;
+  status: 'draft' | 'published' | 'scheduled'; scheduledFor: string; featured: boolean; coverImage: string; noindex: boolean;
 }
 const EMPTY: PostForm = {
-  title: '', slug: '', excerpt: '', content: '', tag: 'Tips', readTime: '', author: '', status: 'draft', scheduledFor: '',
-  featured: false, coverImage: '', seoTitle: '', seoDescription: '', noindex: false,
+  slug: '', tag: 'Tips', author: '', status: 'draft', scheduledFor: '',
+  featured: false, coverImage: '', noindex: false,
 };
 const TAGS = ['Tips', 'Guide', 'Travel', 'Reference', 'News'];
 
@@ -35,12 +41,24 @@ export default function PostEditor({ id }: { id?: string }) {
   const [saved, setSaved] = useState('');
   const [picker, setPicker] = useState<null | 'cover' | 'inline'>(null);
   const [preview, setPreview] = useState(false);
+  const [texts, setTexts] = useState<Texts>(emptyTexts());
+  const [lang, setLang] = useState<Lang>('en');
+  const t = texts[lang];
+  const langName = LANGS.find((l) => l.code === lang)!;
+  const setT = <K extends keyof Text>(k: K, v: string) => setTexts((p) => ({ ...p, [lang]: { ...p[lang], [k]: v } }));
   const set = <K extends keyof PostForm>(k: K, v: PostForm[K]) => setF((p) => ({ ...p, [k]: v }));
 
   useEffect(() => {
     if (!id) return;
-    api<{ post: PostForm & { scheduledFor: string | null } }>(`/posts/${id}`)
-      .then(({ post }) => setF({ ...EMPTY, ...post, scheduledFor: toLocalInput(post.scheduledFor) }))
+    api<{ post: PostForm & { scheduledFor: string | null; translations: Partial<Texts> } }>(`/posts/${id}`)
+      .then(({ post }) => {
+        setF({ ...EMPTY, ...post, scheduledFor: toLocalInput(post.scheduledFor) });
+        const next = emptyTexts();
+        for (const l of LANGS) if (post.translations?.[l.code]) next[l.code] = { ...EMPTY_TEXT, ...post.translations[l.code] };
+        setTexts(next);
+        const first = LANGS.find((l) => hasText(next[l.code]));
+        if (first) setLang(first.code);
+      })
       .catch((e) => setError(errMsg(e)))
       .finally(() => setLoading(false));
   }, [id]);
@@ -49,7 +67,8 @@ export default function PostEditor({ id }: { id?: string }) {
     setBusy(true); setError(''); setSaved('');
     const next = status ?? f.status;
     try {
-      const body = { ...f, status: next, scheduledFor: f.scheduledFor ? new Date(f.scheduledFor).toISOString() : '' };
+      const translations = Object.fromEntries(LANGS.filter((l) => hasText(texts[l.code])).map((l) => [l.code, texts[l.code]]));
+      const body = { ...f, translations, status: next, scheduledFor: f.scheduledFor ? new Date(f.scheduledFor).toISOString() : '' };
       const r = await api<{ post: { id: string } }>(id ? `/posts/${id}` : '/posts', { method: id ? 'PUT' : 'POST', body });
       if (!id) router.replace(`/admin/posts/${r.post.id}`);
       else { setF((p) => ({ ...p, status: next })); setSaved('Saved.'); }
@@ -78,8 +97,21 @@ export default function PostEditor({ id }: { id?: string }) {
       <div className="a-editor">
         <div>
           <div className="a-card">
-            <label className="a-field"><span>Title</span><input className="a-in" value={f.title} onChange={(e) => set('title', e.target.value)} maxLength={160} /></label>
-            <label className="a-field"><span>Short summary (excerpt)</span><textarea className="a-ta" style={{ minHeight: 70 }} value={f.excerpt} onChange={(e) => set('excerpt', e.target.value)} maxLength={400} /></label>
+            <div className="a-actions" style={{ flexWrap: 'wrap', marginBottom: 10 }} role="tablist" aria-label="Post language">
+              {LANGS.map((l) => (
+                <button key={l.code} type="button" role="tab" aria-selected={lang === l.code}
+                  className={`a-btn sm${lang === l.code ? ' primary' : ''}`} onClick={() => { setLang(l.code); setPreview(false); }}>
+                  {l.native}{hasText(texts[l.code]) ? ' ✓' : ''}
+                </button>
+              ))}
+            </div>
+            <small className="a-muted" style={{ display: 'block', marginBottom: 10 }}>
+              Write the post in any of these languages (✓ = written). English and Hindi posts are shown to every reader; a post
+              written only in other languages (say just Marathi) is shown only to readers using those languages. Readers get their own
+              language when it exists, otherwise English, otherwise Hindi.
+            </small>
+            <label className="a-field"><span>Title ({langName.name})</span><input className="a-in" lang={lang} value={t.title} onChange={(e) => setT('title', e.target.value)} maxLength={160} /></label>
+            <label className="a-field"><span>Short summary (excerpt)</span><textarea className="a-ta" lang={lang} style={{ minHeight: 70 }} value={t.excerpt} onChange={(e) => setT('excerpt', e.target.value)} maxLength={400} /></label>
             <div className="a-head" style={{ marginBottom: 6 }}>
               <span className="a-muted" style={{ fontWeight: 700, fontSize: 11, textTransform: 'uppercase' }}>Article (Markdown)</span>
               <div className="a-actions">
@@ -88,8 +120,8 @@ export default function PostEditor({ id }: { id?: string }) {
               </div>
             </div>
             {preview
-              ? <article style={{ minHeight: 300 }} dangerouslySetInnerHTML={{ __html: renderMarkdown(f.content) }} />
-              : <textarea className="a-ta mono" value={f.content} onChange={(e) => set('content', e.target.value)} placeholder={'## Heading\n\nParagraph with **bold**, [a link](https://…) and\n\n- bullet\n- list\n\n| A | B |\n|---|---|\n| 1 | 2 |'} />}
+              ? <article style={{ minHeight: 300 }} dangerouslySetInnerHTML={{ __html: renderMarkdown(t.content) }} />
+              : <textarea className="a-ta mono" lang={lang} value={t.content} onChange={(e) => setT('content', e.target.value)} placeholder={'## Heading\n\nParagraph with **bold**, [a link](https://…) and\n\n- bullet\n- list\n\n| A | B |\n|---|---|\n| 1 | 2 |'} />}
             <small className="a-muted">Supports ## / ### headings, **bold**, *italic*, lists, tables, quotes, links and images. Raw HTML is never rendered.</small>
           </div>
         </div>
@@ -97,11 +129,10 @@ export default function PostEditor({ id }: { id?: string }) {
         <div>
           <div className="a-card">
             <h2>Publishing</h2>
-            <label className="a-field"><span>Address (URL)</span><input className="a-in" value={f.slug} placeholder="auto from title" onChange={(e) => set('slug', e.target.value)} /><small>/blogs/{f.slug || '…'}</small></label>
+            <label className="a-field"><span>Address (URL)</span><input className="a-in" value={f.slug} placeholder="auto from the English/Hindi title" onChange={(e) => set('slug', e.target.value)} /><small>/blogs/{f.slug || '…'}</small></label>
             <label className="a-field"><span>Tag</span>
               <select className="a-sel" value={f.tag} onChange={(e) => set('tag', e.target.value)}>{TAGS.map((t) => <option key={t}>{t}</option>)}</select></label>
             <label className="a-field"><span>Author</span><input className="a-in" value={f.author} onChange={(e) => set('author', e.target.value)} /></label>
-            <label className="a-field"><span>Read time</span><input className="a-in" value={f.readTime} placeholder="auto, e.g. 5 min read" onChange={(e) => set('readTime', e.target.value)} /></label>
             {canPublish && <label className="a-field"><span>Schedule for</span><input className="a-in" type="datetime-local" value={f.scheduledFor} onChange={(e) => set('scheduledFor', e.target.value)} /><small>Pick a time, then press “Schedule”.</small></label>}
             <label className="a-check"><input type="checkbox" checked={f.featured} onChange={(e) => set('featured', e.target.checked)} /> Featured (top of blog)</label>
           </div>
@@ -116,14 +147,14 @@ export default function PostEditor({ id }: { id?: string }) {
           </div>
 
           <div className="a-card">
-            <h2>SEO</h2>
-            <label className="a-field"><span>SEO title</span><input className="a-in" value={f.seoTitle} maxLength={120} onChange={(e) => set('seoTitle', e.target.value)} placeholder={f.title} /><small>{f.seoTitle.length}/60 recommended</small></label>
-            <label className="a-field"><span>Meta description</span><textarea className="a-ta" style={{ minHeight: 80 }} value={f.seoDescription} maxLength={320} onChange={(e) => set('seoDescription', e.target.value)} placeholder={f.excerpt} /><small>{f.seoDescription.length}/160 recommended</small></label>
+            <h2>SEO ({langName.native})</h2>
+            <label className="a-field"><span>SEO title</span><input className="a-in" value={t.seoTitle} maxLength={120} onChange={(e) => setT('seoTitle', e.target.value)} placeholder={t.title} /><small>{t.seoTitle.length}/60 recommended</small></label>
+            <label className="a-field"><span>Meta description</span><textarea className="a-ta" style={{ minHeight: 80 }} value={t.seoDescription} maxLength={320} onChange={(e) => setT('seoDescription', e.target.value)} placeholder={t.excerpt} /><small>{t.seoDescription.length}/160 recommended</small></label>
             <label className="a-check"><input type="checkbox" checked={f.noindex} onChange={(e) => set('noindex', e.target.checked)} /> Hide from search engines</label>
             <div className="a-card" style={{ background: 'var(--bg)', marginTop: 10, marginBottom: 0 }}>
-              <div style={{ color: '#1a0dab', fontSize: 16 }}>{f.seoTitle || f.title || 'Post title'}</div>
+              <div style={{ color: '#1a0dab', fontSize: 16 }}>{t.seoTitle || t.title || 'Post title'}</div>
               <div style={{ color: '#188038', fontSize: 12 }}>/blogs/{f.slug || '…'}</div>
-              <div className="a-muted" style={{ fontSize: 13 }}>{(f.seoDescription || f.excerpt || '').slice(0, 160)}</div>
+              <div className="a-muted" style={{ fontSize: 13 }}>{(t.seoDescription || t.excerpt || '').slice(0, 160)}</div>
             </div>
           </div>
         </div>
@@ -134,7 +165,7 @@ export default function PostEditor({ id }: { id?: string }) {
           onClose={() => setPicker(null)}
           onPick={(m) => {
             if (picker === 'cover') set('coverImage', m.url);
-            else set('content', `${f.content}\n\n![${m.alt || m.name}](${m.url})\n`);
+            else setT('content', `${t.content}\n\n![${m.alt || m.name}](${m.url})\n`);
             setPicker(null);
           }}
         />
