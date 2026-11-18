@@ -64,28 +64,34 @@ export default async function BlogPostPage({ params, searchParams }: Props) {
         <span className="text-[var(--text)] truncate">{post.title}</span>
       </div>
 
+      {/* Title first: tag + read time, the headline, then who/when — before any picture. */}
+      <div className="flex flex-wrap items-center gap-3 mb-3">
+        <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${tagColors[post.tag] ?? 'bg-gray-100 text-gray-600'}`}>{post.tag}</span>
+        <span className="flex items-center gap-1 text-sm text-[var(--muted)]"><Clock size={14} /> {t.readMinutes} min read</span>
+      </div>
+
+      <h1 className="font-heading text-[28px] md:text-4xl font-extrabold text-[var(--text)] leading-[1.2] tracking-tight mb-4">{post.title}</h1>
+
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-[var(--muted)] mb-5">
+        <span className="flex items-center gap-1.5"><User size={14} /> {post.author}</span>
+        <span className="flex items-center gap-1.5">
+          <Calendar size={14} /> {new Date(publicDate(post)).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
+        </span>
+      </div>
+
       <BlogLangSwitcher current={shown} basePath={`/blogs/${post0.slug}`} only={t.languages} />
 
-      <div className="relative h-56 rounded-3xl bg-gradient-to-br from-[#A5E9DD]/40 to-[#34908B]/20 flex items-center justify-center mb-8 overflow-hidden">
+      {/* No empty picture box on phones when a post has no cover. */}
+      <div className={`relative h-48 sm:h-56 rounded-3xl bg-gradient-to-br from-[#A5E9DD]/40 to-[#34908B]/20 items-center justify-center mb-6 overflow-hidden ${post.coverImage ? 'flex' : 'hidden sm:flex'}`}>
         {post.coverImage ? (
-          <Image src={post.coverImage} alt={post.title} fill sizes="768px" style={{ objectFit: 'cover' }} priority unoptimized />
+          <Image src={post.coverImage} alt={post.title} fill sizes="(max-width: 768px) 100vw, 768px" style={{ objectFit: 'cover' }} priority unoptimized />
         ) : (
           <BookOpen size={64} className="text-[var(--primary)] opacity-30" />
         )}
       </div>
 
-      <div className="flex flex-wrap items-center gap-3 mb-4">
-        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${tagColors[post.tag] ?? 'bg-gray-100 text-gray-600'}`}>{post.tag}</span>
-        <span className="flex items-center gap-1 text-xs text-[var(--muted)]"><Clock size={12} /> {t.readMinutes} min read</span>
-        <span className="flex items-center gap-1 text-xs text-[var(--muted)]">
-          <Calendar size={12} /> {new Date(publicDate(post)).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
-        </span>
-        <span className="flex items-center gap-1 text-xs text-[var(--muted)]"><User size={12} /> {post.author}</span>
-      </div>
-
-      <h1 className="font-heading text-3xl md:text-4xl font-extrabold text-[var(--text)] leading-tight mb-6">{post.title}</h1>
       {post.excerpt && (
-        <p className="text-lg text-[var(--muted)] leading-relaxed mb-10 border-l-4 border-[var(--primary)] pl-4">{post.excerpt}</p>
+        <p className="text-[18px] text-[var(--muted)] leading-[1.6] font-medium mb-8 border-l-4 border-[var(--primary)] pl-4">{post.excerpt}</p>
       )}
 
       <article className="max-w-none" dangerouslySetInnerHTML={{ __html: html }} />

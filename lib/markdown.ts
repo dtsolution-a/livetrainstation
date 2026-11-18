@@ -50,8 +50,8 @@ export function renderMarkdown(src: string): string {
     if ((m = /^(#{2,4})\s+(.+?)\s*#*\s*$/.exec(line))) {
       const level = m[1].length;
       const cls =
-        level === 2 ? 'font-heading font-extrabold text-2xl mt-10 mb-4 text-[var(--text)]'
-        : level === 3 ? 'font-heading font-bold text-xl mt-8 mb-3 text-[var(--text)]'
+        level === 2 ? 'font-heading font-extrabold text-[22px] sm:text-2xl leading-snug mt-10 mb-4 text-[var(--text)]'
+        : level === 3 ? 'font-heading font-bold text-xl leading-snug mt-8 mb-3 text-[var(--text)]'
         : 'font-heading font-bold text-lg mt-6 mb-2 text-[var(--text)]';
       out.push(`<h${level} class="${cls}">${inline(m[2])}</h${level}>`);
       i++; continue;
@@ -85,14 +85,14 @@ export function renderMarkdown(src: string): string {
     if (/^\s*[-*]\s+/.test(line)) {
       const items: string[] = [];
       while (i < lines.length && /^\s*[-*]\s+/.test(lines[i])) items.push(lines[i++].replace(/^\s*[-*]\s+/, ''));
-      out.push(`<ul class="my-4 space-y-2">${items.map((t) => `<li class="flex items-start gap-2 text-[15px] text-[var(--text)]"><span class="text-[var(--primary)] mt-0.5">•</span><span>${inline(t)}</span></li>`).join('')}</ul>`);
+      out.push(`<ul class="my-5 space-y-3">${items.map((t) => `<li class="flex items-start gap-2 text-[17px] sm:text-base text-[var(--text)]"><span class="text-[var(--primary)] mt-0.5">•</span><span>${inline(t)}</span></li>`).join('')}</ul>`);
       continue;
     }
 
     if (/^\s*\d+[.)]\s+/.test(line)) {
       const items: string[] = [];
       while (i < lines.length && /^\s*\d+[.)]\s+/.test(lines[i])) items.push(lines[i++].replace(/^\s*\d+[.)]\s+/, ''));
-      out.push(`<ol class="my-4 space-y-2 list-decimal pl-6 marker:text-[var(--primary)] marker:font-bold">${items.map((t) => `<li class="text-[15px] text-[var(--text)] pl-1">${inline(t)}</li>`).join('')}</ol>`);
+      out.push(`<ol class="my-5 space-y-3 list-decimal pl-6 marker:text-[var(--primary)] marker:font-bold">${items.map((t) => `<li class="text-[17px] sm:text-base text-[var(--text)] pl-1">${inline(t)}</li>`).join('')}</ol>`);
       continue;
     }
 
@@ -103,7 +103,7 @@ export function renderMarkdown(src: string): string {
       !/^(#{2,4})\s+/.test(lines[i]) && !/^\s*[-*]\s+/.test(lines[i]) && !/^\s*\d+[.)]\s+/.test(lines[i]) &&
       !/^\s*>/.test(lines[i]) && !/^(-{3,}|\*{3,})\s*$/.test(lines[i])
     ) buf.push(lines[i++]);
-    out.push(`<p class="text-[var(--text)] leading-relaxed mb-4 text-[15px]">${inline(buf.join(' '))}</p>`);
+    out.push(`<p class="text-[var(--text)] leading-[1.8] mb-5 text-[17px] sm:text-base">${inline(buf.join(' '))}</p>`);
   }
   return out.join('\n');
 }
