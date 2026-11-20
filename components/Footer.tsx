@@ -1,8 +1,9 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useSiteConfig } from './SiteConfig';
-import { Train, ExternalLink } from 'lucide-react';
+import { ExternalLink } from 'lucide-react';
 
 const col: React.CSSProperties = {
   display: 'flex', flexDirection: 'column', gap: 8,
@@ -44,15 +45,7 @@ export default function Footer() {
           {/* Brand */}
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-              <div
-                style={{
-                  width: 32, height: 32, borderRadius: 10,
-                  backgroundColor: 'var(--primary)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}
-              >
-                <Train size={16} color="var(--on-primary)" />
-              </div>
+              <Image src="/images/logo-256.png" alt="" width={34} height={34} style={{ display: 'block', objectFit: 'contain' }} />
               <span
                 style={{
                   fontFamily: "var(--font-heading), sans-serif",

@@ -72,7 +72,7 @@ export function articleJsonLd(post: Post, lang = 'en') {
     datePublished: post.publishedAt || post.scheduledFor || post.createdAt,
     dateModified: post.updatedAt,
     author: { '@type': 'Person', name: post.author },
-    publisher: { '@type': 'Organization', name: s.seo.siteName, logo: { '@type': 'ImageObject', url: abs('/icon.svg') } },
+    publisher: { '@type': 'Organization', name: s.seo.siteName, logo: { '@type': 'ImageObject', url: abs('/images/logo-512.png') } },
     mainEntityOfPage: `${config.siteUrl}/blogs/${post.slug}`,
   };
 }

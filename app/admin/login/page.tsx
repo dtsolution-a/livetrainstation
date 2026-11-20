@@ -59,6 +59,7 @@ export default function LoginPage() {
     <div className="a-login">
       {siteKey && <Script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" strategy="afterInteractive" onReady={mount} />}
       <div className="a-card">
+        <img src="/images/logo-256.png" alt="Live Train Station" width={56} height={56} style={{ display: 'block', margin: '0 0 12px' }} />
         <h1 className="a-h1">Admin sign in</h1>
         <p className="a-sub">Live Train Station</p>
         {error && <div className="a-alert err" role="alert">{error}</div>}

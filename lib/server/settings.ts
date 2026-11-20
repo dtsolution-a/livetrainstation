@@ -44,7 +44,7 @@ export const DEFAULT_SETTINGS: Settings = {
     titleSuffix: '',
     defaultDescription:
       "Track live train status, check PNR status, search trains between stations, get fare info and more. India's smartest railway companion.",
-    defaultOgImage: '/images/poster.png',
+    defaultOgImage: '/images/og-image.png',
     pages: {},
     robotsExtra: '',
     googleVerification: '',

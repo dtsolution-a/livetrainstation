@@ -74,7 +74,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
     <AuthCtx.Provider value={{ session, can, refresh, setSession }}>
       <div className="a-root a-layout">
         <aside className={`a-side ${open ? 'open' : ''}`}>
-          <div className="a-brand">Live Train Station <span>Admin</span></div>
+          <div className="a-brand"><img src="/images/logo-256.png" alt="" width={26} height={26} style={{ display: 'block' }} />Live Train Station <span>Admin</span></div>
           <nav>
             {NAV.filter((n) => can(n.perm)).map((n) => {
               const active = n.href === '/admin' ? pathname === '/admin' : pathname.startsWith(n.href);

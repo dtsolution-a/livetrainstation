@@ -2,8 +2,9 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { Train, Menu, X, Moon, Sun } from 'lucide-react';
+import { Menu, X, Moon, Sun } from 'lucide-react';
 import { useTheme } from './ThemeProvider';
 
 const mainNavLinks = [
@@ -59,16 +60,7 @@ export default function Navbar() {
               whiteSpace: 'nowrap',
             }}
           >
-            <div
-              style={{
-                width: 32, height: 32,
-                borderRadius: 10,
-                backgroundColor: 'var(--primary)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}
-            >
-              <Train size={16} color="var(--on-primary)" />
-            </div>
+            <Image src="/images/logo-256.png" alt="" width={34} height={34} priority style={{ display: 'block', objectFit: 'contain' }} />
             Live Train Station
           </Link>
         </div>
